@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block intestazione %}Pratiche{% endblock %}
+{% block stile %}
+<style>
+main { max-width: 960px; margin: 0 auto; display: grid; gap: 20px; }
+.nuova label { display: block; margin-bottom: 10px; }
+.nuova label > span { display: block; font-weight: 600; margin-bottom: 4px; }
+.riga { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.riga label { display: flex; gap: 6px; align-items: center; margin: 0; }
+.riga input[type=checkbox] { width: auto; }
+.piccolo { color: var(--tenue); font-size: 13px; }
+table { width: 100%; border-collapse: collapse; }
+td, th { text-align: left; padding: 8px; border-bottom: 1px solid var(--bordo); }
+#attesa { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); color: #fff; align-items: center; justify-content: center; font-size: 18px; z-index: 10; text-align: center; padding: 20px; }
+</style>
+{% endblock %}
+{% block corpo %}
+<main>
+  {% if errore %}<div class="avviso errore">{{ errore }}</div>{% endif %}
+  <form class="carta nuova" method="post" action="/nuova" enctype="multipart/form-data" id="nuova">
+    <h2 style="margin-top:0">Nuova pratica</h2>
+    <label><span>Documenti PDF</span>
+      <input type="file" name="documenti_pdf" accept="application/pdf" multiple required>
+      <span class="piccolo">Istanza A02, schede A02.3 e A02.4, relazione tecnica, piedilisti… (in tutto massimo 30 MB con Claude, 19 MB con Gemini). Le tavole cartografiche possono restare fuori.</span>
+    </label>
+    <label><span>Nome della pratica (facoltativo)</span><input type="text" name="etichetta" placeholder="es. Rossi Crotone"></label>
+    <div class="riga">
+      {% if chiave %}
+      <label><input type="checkbox" name="estrai" value="1" checked> Estrai i dati con l'AI ({{ chiave.descrizione }}): i PDF vengono inviati a questo servizio</label>
+      {% else %}
+      <label><input type="checkbox" name="estrai" value="1" disabled> Estrazione AI non disponibile: <a href="/impostazioni">aggiungere una chiave</a></label>
+      {% endif %}
+      <button type="submit">Carica</button>
+    </div>
+  </form>
+  <section class="carta">
+    <h2 style="margin-top:0">Pratiche in corso</h2>
+    {% if pratiche %}
+    <table>
+      {% for p in pratiche %}
+      <tr><td><a href="/pratica/{{ p.id }}">{{ p.titolo }}</a>{% if not p.ha_dati %} <span class="piccolo">(senza dati)</span>{% endif %}</td>
+          <td class="piccolo">{{ p.modificata.strftime('%d/%m/%Y %H:%M') }}</td></tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="piccolo">Nessuna pratica.</p>{% endif %}
+  </section>
+</main>
+<div id="attesa">Lettura dei documenti in corso…<br>può richiedere un paio di minuti.</div>
+{% endblock %}
+{% block script %}
+<script>
+document.getElementById('nuova').addEventListener('submit', function () {
+  if (this.estrai.checked && !this.estrai.disabled) document.getElementById('attesa').style.display = 'flex';
+});
+</script>
+{% endblock %}

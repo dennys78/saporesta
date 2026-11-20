@@ -1,0 +1,11 @@
+.git
+.venv
+.pytest_cache
+**/__pycache__
+pratiche
+casi_reali
+dati
+modelli
+output
+.env
+.claude

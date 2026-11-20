@@ -1,0 +1,90 @@
+# Pratica di ESEMPIO (dati fittizi) - ceduo di eucalipto/rimboschimento, Crotone (KR).
+# Ricalcata su un'istanza A02 reale: nomi, codici, indirizzi, località e particelle sono inventati.
+# Gli allegati A02.2, A02.3, A02.4 e il progetto non sono ancora stati inseriti:
+# le relative voci della checklist restano "da controllare".
+
+protocollo: "100001"
+data_protocollo: 2026-10-26
+data_istanza: 2026-09-20
+riferimento_normativo_modulo: "PMPF D.G.R. n. 218 del 20.05.2011"
+
+richiedente:
+  cognome: Rossi
+  nome: Mario
+  sesso: M
+  data_nascita: 1970-01-01
+  luogo_nascita: Crotone (KR)
+  comune_residenza: Crotone
+  provincia: KR
+  indirizzo: Via Esempio
+  civico: "1"
+  codice_fiscale: RSSMRA70A01X000X
+titolo_richiedente: proprietario
+classe_eutr: "Nessuna (Proprietario forestale) - privato"
+
+tecnico:
+  titolo: Dott. For.
+  cognome: Verdi
+  nome: Luca
+  sesso: M
+  data_nascita: 1980-01-01
+  luogo_nascita: Cosenza
+  comune_residenza: Cosenza
+  cap: "87100"
+  provincia: CS
+  indirizzo: Via Prova
+  civico: "10"
+  codice_fiscale: VRDLCU80A01X000X
+  email: tecnico@example.it
+  ordine_provincia: Cosenza
+  numero_iscrizione: "999"
+  sezione: B
+  sigla_martello: CS 999-B
+
+intervento:
+  tipo: ceduo
+  sottotipi: [senza_matricine]
+  straordinario: false
+  previsto_da: null
+  popolamento:
+    specie: []            # non indicata nell'istanza
+    eta_min: 8
+    eta_max: 15
+    anno_ultimo_taglio: 2018
+    origine_artificiale: true   # dichiarato vincolo art. 54 R.D. 3267/23 (rimboschimento)
+
+inquadramento:
+  comune: Crotone
+  provincia: KR
+  localita: Esempio
+  particelle:
+    - {foglio: "6", particelle: ["1", "2", "3"]}
+    - {foglio: "7", particelle: ["10", "11", "12", "13", "14"]}
+    - {foglio: "10", particelle: ["20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36"]}
+  superficie_catastale_ha: 26.1481
+  superficie_intervento_ha: 21.50
+  destinazione_urbanistica: null
+
+vincoli:
+  aree_protette: []
+  natura2000: false
+  pai_geomorfologico: []
+  pai_idraulico: []
+  percorsa_incendio: false
+  vincolo_art54: true
+  pendenza_media_pct: null
+
+versamento:
+  importo_totale: 57.00
+  segreteria: 32.00
+  istruttoria: 25.00
+  modalita: "c/c postale n. 15695885"
+
+istruttoria:
+  checklist:
+    istanza: {stato: si}
+    versamento: {stato: si}
+    dichiarazione_art54: {stato: si, nota: "Dichiarato: VIGE il vincolo art. 54"}
+  verifiche_ufficio: []
+  destinatari_conoscenza:
+    - "Gruppo Carabinieri Forestale competente\nVia Esempio, 1\n88900 CROTONE (KR)"

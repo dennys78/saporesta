@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block titolo %}Impostazioni{% endblock %}
+{% block intestazione %}Impostazioni – chiavi AI{% endblock %}
+{% block stile %}
+<style>
+main { max-width: 960px; margin: 0 auto; display: grid; gap: 18px; }
+.chiave { display: grid; gap: 10px; }
+.chiave.attiva { border-color: var(--verde); box-shadow: 0 0 0 1px var(--verde); }
+.testa { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.testa h3 { margin: 0; font-size: 16px; flex: 1; }
+.distintivo { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: var(--verde-chiaro); color: var(--verde); }
+.distintivo.avviso-dati { background: var(--giallo-chiaro); color: var(--giallo); }
+.distintivo.spenta { background: var(--sfondo); color: var(--tenue); }
+.piccolo { color: var(--tenue); font-size: 13px; }
+.riga { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+.riga label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--tenue); }
+.riga label.spunta { flex-direction: row; align-items: center; gap: 6px; color: var(--testo); }
+.riga label.spunta input { width: auto; }
+.riga .cresce { flex: 1; min-width: 220px; }
+code { font-size: 13px; }
+form.in-linea { display: inline; }
+</style>
+{% endblock %}
+{% block corpo %}
+<main>
+  {% if messaggio %}<div class="avviso">{{ messaggio }}</div>{% endif %}
+  {% if errore %}<div class="avviso errore">{{ errore }}</div>{% endif %}
+
+  <section class="carta">
+    <h2 style="margin-top:0">Come funziona</h2>
+    <p>La chiave <strong>attiva</strong> viene usata per estrarre i dati dai PDF delle nuove pratiche. Si possono salvare più
+    chiavi (Gemini o Claude) e cambiare quella attiva in ogni momento. Ogni chiave viene verificata prima di essere salvata.</p>
+    <p class="piccolo">Le chiavi restano su questo Mac, in <code>{{ file }}</code>, leggibili solo dal tuo utente; la pagina ne
+    mostra solo le ultime 4 cifre. I PDF delle pratiche vengono inviati al fornitore della chiave attiva.
+    Con una chiave Gemini <strong>gratuita</strong> Google può usare i contenuti inviati per migliorare i propri prodotti
+    (verificare i termini attuali): per istanze con dati personali usare una chiave di un account a pagamento.</p>
+    {% if da_ambiente and not chiavi %}<p class="piccolo">Ora è in uso la chiave della {{ da_ambiente.etichetta }}.</p>{% endif %}
+  </section>
+
+  {% for c in chiavi %}
+  <section class="carta chiave {{ 'attiva' if c.id == attiva }}">
+    <div class="testa">
+      <h3>{{ c.etichetta }} <span class="piccolo">· {{ nomi[c.fornitore] }} · {{ c.mascherata }}</span></h3>
+      {% if c.id == attiva %}<span class="distintivo">attiva</span>{% else %}
+      <form class="in-linea" method="post" action="/impostazioni/{{ c.id }}/attiva"><button type="submit" class="secondario">Rendi attiva</button></form>{% endif %}
+      {% if c.fornitore == 'gemini' and not c.a_pagamento %}<span class="distintivo avviso-dati">gratuita: non usare con dati personali</span>{% endif %}
+    </div>
+    <form class="riga" method="post" action="/impostazioni/{{ c.id }}/modifica">
+      <label class="cresce">Nome
+        <input type="text" name="etichetta" value="{{ c.etichetta }}"></label>
+      <label class="cresce">Modello
+        {% set elenco = modelli_verificati.get(c.id) %}
+        {% if elenco %}
+        <select name="modello">
+          {% if not c.modello %}<option value="">— scegliere —</option>{% endif %}
+          {% for m in elenco %}<option value="{{ m }}" {{ 'selected' if m == c.modello_effettivo }}>{{ m }}</option>{% endfor %}
+        </select>
+        {% else %}
+        <input type="text" value="{{ c.modello_effettivo or 'da scegliere: premere Verifica' }}" disabled>
+        {% endif %}
+      </label>
+      <label class="spunta"><input type="checkbox" name="a_pagamento" value="1" {{ 'checked' if c.a_pagamento }}> account a pagamento</label>
+      <button type="submit">Salva</button>
+    </form>
+    <div class="riga">
+      <form class="in-linea" method="post" action="/impostazioni/{{ c.id }}/verifica"><button type="submit" class="secondario">Verifica e mostra i modelli</button></form>
+      <form class="in-linea" method="post" action="/impostazioni/{{ c.id }}/elimina" onsubmit="return confirm('Eliminare la chiave «{{ c.etichetta }}»?')"><button type="submit" class="pericolo">Elimina</button></form>
+    </div>
+    {% if c.fornitore == 'gemini' and not c.modello %}<p class="avviso errore" style="margin:0">Scegliere il modello Gemini: senza modello l'estrazione non parte.</p>{% endif %}
+  </section>
+  {% endfor %}
+
+  <section class="carta">
+    <h2 style="margin-top:0">Carta intestata dei documenti</h2>
+    <p class="piccolo">{% if carta_intestata %}In uso la carta intestata caricata.{% else %}<strong>Nessuna carta intestata:</strong> verbale, autorizzazione e richiesta di integrazioni escono su foglio bianco.{% endif %}
+    Caricare un qualunque documento Word dell'ufficio (per esempio un'autorizzazione già firmata): se ne tengono
+    intestazione, logo e piè di pagina, mentre il testo viene scartato.</p>
+    <form class="riga" method="post" action="/impostazioni/carta-intestata" enctype="multipart/form-data">
+      <label class="cresce">Documento Word (.docx)<input type="file" name="documento" accept=".docx" required></label>
+      <button type="submit">Carica</button>
+    </form>
+  </section>
+
+  <section class="carta">
+    <h2 style="margin-top:0">Aggiungi una chiave</h2>
+    <form class="riga" method="post" action="/impostazioni/aggiungi" autocomplete="off">
+      <label>Fornitore
+        <select name="fornitore">
+          <option value="gemini">Google Gemini</option>
+          <option value="anthropic">Anthropic Claude</option>
+        </select></label>
+      <label class="cresce">Nome (facoltativo)<input type="text" name="etichetta" placeholder="es. Gemini ufficio"></label>
+      <label class="cresce">Chiave API<input type="password" name="valore" required autocomplete="new-password"></label>
+      <label class="spunta"><input type="checkbox" name="a_pagamento" value="1"> account a pagamento</label>
+      <button type="submit">Verifica e salva</button>
+    </form>
+    <p class="piccolo">Le chiavi Gemini si creano su Google AI Studio; quelle Claude nella Console Anthropic.</p>
+  </section>
+</main>
+{% endblock %}

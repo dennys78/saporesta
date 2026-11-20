@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Documenti generati
+/output/
+.pytest_cache/
+/pratiche/
+
+# Dati reali e riservati: mai nel repository
+/casi_reali/
+/dati/
+.env
+# Carta intestata dell'ufficio e modelli generati da essa (si caricano dal portale)
+/modelli/

@@ -1,0 +1,139 @@
+# Pratica di ESEMPIO (dati fittizi) - fustaia di pino laricio, Savelli (KR).
+# Ricalcata su una pratica reale: nomi, codici, indirizzi, località, particelle e firmatari sono inventati;
+# i dati dendrometrici e le incongruenze tra documenti sono quelli originali.
+# Le voci della checklist non citate nel verbale restano "da controllare".
+
+protocollo: "100002"
+data_protocollo: 2026-10-01
+protocolli_integrazione: ["100003 del 15/10/2026"]
+
+richiedente:
+  cognome: Bianchi
+  nome: Paolo
+  sesso: M
+  data_nascita: 1975-05-05
+  luogo_nascita: Savelli (KR)
+  comune_residenza: Savelli
+  cap: "88825"
+  provincia: KR
+  indirizzo: Via Esempio
+  civico: "2"
+titolo_richiedente: proprietario
+classe_eutr: "Nessuna - Privato"
+
+tecnico:
+  titolo: Dott. For.
+  cognome: Neri
+  nome: Giulio
+  sesso: M
+  comune_residenza: Savelli
+  cap: "88825"
+  provincia: KR
+  indirizzo: Via Modello
+  civico: "3"
+  pec: tecnico@pec.example.it
+  ordine_provincia: Crotone
+  numero_iscrizione: "888"
+  sigla_martello: KR 888
+
+intervento:
+  tipo: fustaia
+  sottotipi: [rinnovazione]
+  titolo_progetto: "PROGETTO DI UTILIZZAZIONE DI UNA FUSTAIA DI PINO LARICIO IN LOCALITÀ “BOSCO ESEMPIO” in agro del comune di Savelli (KR)"
+  manutenzione_viabilita: "ordinaria della viabilità forestale esistente (art. 53)"
+  popolamento:
+    specie: [{nome: Pino laricio, percentuale: 100}]
+    eta_min: 60
+    eta_max: 60
+    origine_artificiale: false
+
+inquadramento:
+  comune: Savelli
+  provincia: KR
+  localita: Bosco Esempio
+  particelle:
+    - {foglio: "5", particelle: ["7", "8"]}
+  superficie_catastale_ha: 0.9990
+  superficie_intervento_ha: 0.6112
+  destinazione_urbanistica: Area agricola forestale
+
+vincoli:
+  natura2000: false
+  percorsa_incendio: false
+  vincolo_art54: false
+
+scheda:
+  totale_taglio: {n_piante: 27, area_basimetrica: 4.3, volume: 51.97}
+  ettaro_dopo: {volume: 393.7}
+  peso_specifico_q_m3: 10
+  massa_taglio_totale_q: 519.7
+  percentuale_dichiarata_g: 20
+  alberi_invecchiamento: 2
+  assortimenti:
+    - {descrizione: "tronco o tondo da sega", volume_m3: 31.5}
+    - {descrizione: "uso energetico", volume_m3: 19.5}
+
+martellata:
+  n_piante: 27
+  numero_da: 1
+  numero_a: 27
+  specie: Pino laricio
+  sigla_martello: KR 888
+  colore_vernice: nero
+  sezione: Sezione A
+
+riscontri:
+  - {campo: "volume prelevato (m³)", documento: "piedilista di martellata", valore: "51,97"}
+  - {campo: "volume prelevato (m³)", documento: "statistica forestale A02.4", valore: "51,5"}
+
+versamento:
+  importo_totale: 57.00
+
+istruttoria:
+  checklist:
+    istanza: {stato: si}
+    elenco_a02_2: {stato: si}
+    scheda_a02_3: {stato: si}
+    versamento: {stato: si}
+    scheda_a02_4: {stato: si}
+    documento_richiedente: {stato: si}
+    incarico_tecnico: {stato: si}
+    documento_tecnico: {stato: si}
+    fattura_tecnico: {stato: si}
+    catasto_incendi: {stato: si, nota: "asseverazione del tecnico progettista"}
+    visure_mappa: {stato: si}
+    dichiarazione_art54: {stato: si, nota: "NON VIGE"}
+    progetto_esecutivo: {stato: si}
+    asseverazione_art18: {stato: si}
+    viabilita: {stato: si}
+    relazione_tecnica: {stato: si}
+    cronoprogramma: {stato: si}
+    piedilista_confine: {stato: si}
+    elenco_invecchiamento: {stato: si}
+    foto: {stato: si}
+    asseverazione_compatibilita: {stato: si}
+    carta_catastale: {stato: si}
+    corografia: {stato: si}
+    ortofoto: {stato: si}
+    carta_interventi: {stato: si}
+    carta_pendenze: {stato: si}
+    piedilista_martellata: {stato: si}
+    quadro_riepilogativo: {stato: si}
+  verifiche_ufficio:
+    - sistema: SIM
+      esito: "dalla consultazione delle particelle sul sistema informativo SIM risulta che le stesse sono state percorse dal fuoco"
+      criticita: true
+    - sistema: SIAN
+      esito: "dalla consultazione delle particelle sul sistema informativo SIAN risulta che le stesse non rientrano nei Siti comunitari afferenti alla rete “Natura 2000”: SIC, ZPS"
+    - sistema: PAI
+      esito: "dalla consultazione del Piano di Assetto Idrogeologico risulta che le particelle non sono in aree a rischio frana ed inondazione R1, R2, R3 e R4"
+  riferimento_vinca: "rilasciato dal Dipartimento Territorio e Tutela dell'Ambiente con Decreto n. 1234 del 26.05.2025"
+  prescrizioni_aggiuntive:
+    - "Dovranno essere rispettate tutte le prescrizioni previste nel Decreto di valutazione d'incidenza ambientale rilasciato dal Dipartimento Territorio e Tutela dell'Ambiente n. 1234 del 26.05.2025."
+  firmatari:
+    istruttore: "Dott. For. Mario ISTRUTTORE"
+    responsabile_procedimento: "Dott.ssa Anna RESPONSABILE"
+    dirigente: "Ing. Carlo DIRIGENTE"
+  destinatari_conoscenza:
+    - "Reparto Carabinieri Forestali Provinciale - Crotone\nVia Aldo Capitini\n88900 CROTONE (KR)\nreparto@pec.example.it"
+    - "Nucleo Carabinieri Forestali di zona\nVia Esempio, 3\n88825 SAVELLI (KR)\nnucleo@pec.example.it"

@@ -1,0 +1,108 @@
+# Parametri del Regolamento regionale n. 4 del 30/04/2024 (attuazione L.R. 45/2012).
+# Se la norma cambia, si aggiornano questi valori: il codice delle verifiche li legge da qui.
+
+riferimento: "Regolamento n. 4 del 30/04/2024 di attuazione della Legge Regionale 12 ottobre 2012 n. 45"
+
+superficie_soglia_autorizzazione_ha: 2.0   # artt. 31-33: sotto i 2 ha basta la comunicazione
+
+diritti:
+  segreteria: 32.0
+  istruttoria: 25.0
+
+ceduo:
+  stagione_silvana: {da: "15/09", a: "15/06"}          # art. 29 c.2
+  tagliata_max_ha: 10.0                                 # art. 31 c.1
+  tagliata_max_ha_pendenza: 5.0                         # art. 31 c.1
+  pendenza_soglia_tagliata_pct: 40
+  superficie_max_piu_tagliate_ha: 50.0                  # art. 31 c.2
+  # art. 30 c.1 - turno minimo (anni) per gruppo di specie
+  turni_minimi:
+    eucalipto: 10
+    pioppo: 10
+    castagno: 12
+    ontano_robinia: 12
+    querce_caducifoglie: 18
+    carpino_orniello: 18
+    faggio: 24
+    leccio_macchia: 25
+  # art. 30 c.5 - gruppi per cui è ammessa la ceduazione oltre il doppio del turno
+  oltre_doppio_turno_ammessi: [eucalipto, castagno, leccio_macchia]
+  # art. 34
+  matricine_min_ha: {default: 50, castagno: 30}
+  matricine_min_ha_pendenza: {default: 80, castagno: 60}
+  pendenza_soglia_matricine_pct: 60
+  matricine_doppio_turno_min_pct: 50
+  # art. 35
+  composto_matricine_min_ha: 120
+  # art. 36 - cedui puri in cui non è obbligatoria la riserva di matricine
+  senza_matricine_ammessi: [robinia, nocciolo, pioppo, salice, eucalipto]
+  # art. 33 c.4
+  sfolli_diradamenti_max_pct_polloni: 20
+  sfolli_diradamenti_max_per_turno: 2
+
+fustaia:
+  # art. 38 c.8 - provvigione minimale (m³/ha) per categoria
+  provvigione_minimale:
+    pini_querceti_mediterranei: 150
+    cerro_latifoglie_mesofile_misti_pino_nero_laricio: 250
+    faggio_misti_montani: 350
+  # art. 38 c.9 - prelievo massimo in funzione della provvigione rispetto alla minimale
+  prelievo_per_provvigione:
+    - {da_pct: 80, max_prelievo_pct: 25}
+    - {da_pct: 60, max_prelievo_pct: 20}
+    - {da_pct: 40, max_prelievo_pct: 15}
+    - {da_pct: 20, max_prelievo_pct: 10}
+  intervallo_minimo_anni: 10                    # art. 38 c.11
+  # art. 39 c.5 - diradamenti: % massima di area basimetrica
+  diradamento_g_max_pct_sotto_30: 15
+  diradamento_g_max_pct_30_60: 20
+  # art. 19 - alberi a invecchiamento indefinito: 2 per ettaro o frazione
+  alberi_invecchiamento_per_ha: 2
+  # art. 18 c.2 - piante morte da rilasciare, se presenti
+  piante_morte_min_ha: 8
+  # art. 27 c.3 - aumento provvigione minima vicino alle sorgenti
+  aumento_provvigione_sorgenti_pct: 20
+
+transitorio:
+  primo_avviamento_piante_ha: 1200              # art. 41 c.3
+  primo_avviamento_polloni_ceppaia: 2
+  successivi_max_prelievo_pct: 20               # art. 41 c.4
+  rinnovazione_multiplo_turno: 4                # art. 41 c.5 lett. a
+
+a02_3:
+  area_saggio_min_m2: 400
+  aree_saggio_min: 2
+  tolleranza_percentuale: 0.5   # punti percentuali tra % dichiarata e % ricalcolata
+  tolleranza_relativa: 0.02     # 2% sui totali (superficie x dato a ettaro)
+  coefficiente_forma: 0.53      # per il controllo incrociato dell'altezza media
+
+# Gruppi di specie: nome comune (minuscolo) -> gruppo turno ceduo e categoria fustaia.
+specie:
+  eucalipto:            {turno: eucalipto,            fustaia: pini_querceti_mediterranei}
+  pioppo:               {turno: pioppo,               fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  castagno:             {turno: castagno,             fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  ontano:               {turno: ontano_robinia,       fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  ontano napoletano:    {turno: ontano_robinia,       fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  robinia:              {turno: ontano_robinia,       fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  acacia:               {turno: ontano_robinia,       fustaia: pini_querceti_mediterranei}
+  salice:               {turno: ontano_robinia,       fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  acero:                {turno: ontano_robinia,       fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  nocciolo:             {turno: ontano_robinia,       fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  cerro:                {turno: querce_caducifoglie,  fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  roverella:            {turno: querce_caducifoglie,  fustaia: pini_querceti_mediterranei}
+  farnetto:             {turno: querce_caducifoglie,  fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  quercia:              {turno: querce_caducifoglie,  fustaia: pini_querceti_mediterranei}
+  carpino:              {turno: carpino_orniello,     fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  orniello:             {turno: carpino_orniello,     fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  faggio:               {turno: faggio,               fustaia: faggio_misti_montani}
+  leccio:               {turno: leccio_macchia,       fustaia: pini_querceti_mediterranei}
+  macchia mediterranea: {turno: leccio_macchia,       fustaia: pini_querceti_mediterranei}
+  pino laricio:         {fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  pino nero:            {fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  pino d'aleppo:        {fustaia: pini_querceti_mediterranei}
+  pino domestico:       {fustaia: pini_querceti_mediterranei}
+  pino marittimo:       {fustaia: pini_querceti_mediterranei}
+  pino:                 {fustaia: pini_querceti_mediterranei}
+  douglasia:            {fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
+  abete bianco:         {fustaia: faggio_misti_montani}
+  sughera:              {fustaia: pini_querceti_mediterranei}

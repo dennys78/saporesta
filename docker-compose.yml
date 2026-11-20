@@ -1,0 +1,14 @@
+services:
+  saporesta:
+    build: .
+    image: saporesta:latest
+    container_name: saporesta
+    restart: unless-stopped
+    ports:
+      - "8765:8000"          # il portale sarà su http://<indirizzo-mac-mini>:8765
+    environment:
+      # password di accesso al portale: impostarla nel file .env (vedi .env.example)
+      SAPORESTA_PASSWORD: ${SAPORESTA_PASSWORD:?impostare SAPORESTA_PASSWORD nel file .env}
+    volumes:
+      # pratiche, PDF, chiavi API e carta intestata restano sul Mac mini in questa cartella
+      - ./dati:/data

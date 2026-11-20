@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block titolo %}{{ titolo }}{% endblock %}
+{% block intestazione %}{{ titolo }}{% endblock %}
+{% block azioni %}
+  <button type="submit" form="modulo">Salva e verifica</button>
+{% endblock %}
+{% block stile %}
+<style>
+main.doppia { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 16px; padding: 12px 16px; }
+@media (max-width: 1000px) { main.doppia { grid-template-columns: 1fr; } .visore { position: static !important; height: 70vh !important; } }
+.visore { position: sticky; top: 62px; height: calc(100vh - 80px); display: flex; flex-direction: column; background: var(--carta); border: 1px solid var(--bordo); border-radius: 8px; overflow: hidden; }
+.schede { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--bordo); }
+.schede button { background: transparent; color: var(--tenue); border: 0; border-radius: 0; padding: 8px 12px; white-space: nowrap; border-bottom: 2px solid transparent; }
+.schede button.attiva { color: var(--testo); border-bottom-color: var(--verde); }
+.visore iframe { flex: 1; border: 0; width: 100%; background: #fff; }
+.destra { display: grid; gap: 14px; align-content: start; }
+.esito { border-left: 5px solid var(--blu); }
+.esito.autorizzabile { border-left-color: var(--verde); }
+.esito.integrazioni { border-left-color: var(--rosso); }
+.esito.completare { border-left-color: var(--giallo); }
+.esito h2 { margin: 0 0 6px; font-size: 17px; }
+details { margin-top: 6px; }
+summary { cursor: pointer; font-weight: 600; }
+ul.esiti { list-style: none; padding: 0; margin: 6px 0 0; }
+ul.esiti li { padding: 4px 0; border-bottom: 1px solid var(--bordo); font-size: 14px; }
+.liv { display: inline-block; min-width: 22px; text-align: center; font-weight: 700; }
+.liv-non-conforme { color: var(--rosso); } .liv-da-verificare { color: var(--giallo); } .liv-attenzione { color: var(--giallo); }
+.liv-ok { color: var(--verde); } .liv-info { color: var(--blu); }
+.art { color: var(--tenue); font-size: 12px; }
+.dubbi { background: var(--giallo-chiaro); border-color: transparent; }
+.dubbi h2 { margin: 0 0 6px; font-size: 16px; color: var(--giallo); }
+.dubbi li { font-size: 14px; }
+.sezione { background: var(--carta); border: 1px solid var(--bordo); border-radius: 8px; padding: 14px 16px; }
+.sezione h2 { margin: 0 0 10px; font-size: 16px; }
+.griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px 12px; }
+.campo { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.campo > span:first-child { color: var(--tenue); }
+.campo.largo, fieldset.gruppo { grid-column: 1 / -1; }
+.campo.dubbio input, .campo.dubbio select, .campo.dubbio textarea, .campo.dubbio .caselle { outline: 2px solid var(--giallo); background: var(--giallo-chiaro); }
+.nota-dubbio { color: var(--giallo); font-size: 12px; margin: 0 0 4px; }
+fieldset.gruppo.dubbio { border-color: var(--giallo); background: var(--giallo-chiaro); }
+fieldset.gruppo { border: 1px solid var(--bordo); border-radius: 6px; margin: 4px 0; padding: 8px 12px 12px; }
+fieldset.gruppo legend { font-weight: 600; padding: 0 4px; }
+.voce { position: relative; border-bottom: 1px dashed var(--bordo); padding: 8px 34px 10px 0; }
+.voce:last-child { border-bottom: 0; }
+.rimuovi { position: absolute; right: 0; top: 8px; padding: 2px 8px; background: transparent; color: var(--rosso); border-color: var(--bordo); }
+.aggiungi { margin-top: 6px; background: transparent; color: var(--verde); padding: 4px 10px; }
+.caselle { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 4px 6px; border-radius: 5px; }
+.casella { display: flex; gap: 5px; align-items: center; font-size: 13px; }
+.casella input, .stato input { width: auto; }
+table.checklist { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.checklist td, table.checklist th { padding: 5px 6px; border-bottom: 1px solid var(--bordo); text-align: left; vertical-align: top; }
+table.checklist td:first-child { width: 52%; }
+table.checklist td.radio { white-space: nowrap; }
+tr.gruppo-checklist th { background: var(--sfondo); }
+.stato { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; }
+.documenti form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.documenti label { display: flex; gap: 6px; align-items: center; }
+.documenti input[type=checkbox] { width: auto; }
+.fondo { display: flex; justify-content: space-between; gap: 10px; }
+</style>
+{% endblock %}
+{% block corpo %}
+<main class="doppia">
+  <aside class="visore">
+    {% if pdf %}
+    <div class="schede">
+      {% for nome in pdf %}<button type="button" data-src="/pratica/{{ id }}/pdf/{{ nome | urlencode }}" class="{{ 'attiva' if loop.first }}">{{ nome }}</button>{% endfor %}
+    </div>
+    <iframe id="pdf" src="/pratica/{{ id }}/pdf/{{ pdf[0] | urlencode }}" title="Documento"></iframe>
+    {% else %}<p style="padding:16px">Nessun PDF caricato.</p>{% endif %}
+  </aside>
+
+  <div class="destra">
+    {% if messaggio %}<div class="avviso">{{ messaggio }}</div>{% endif %}
+    {% if errori %}<div class="avviso errore">Dati da correggere:<ul>{% for e in errori %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+
+    {% if risultato %}
+    {% set classe = {'autorizzabile': 'autorizzabile', 'richiesta integrazioni': 'integrazioni', 'istruttoria da completare': 'completare'}[risultato.proposta.value] %}
+    <section class="carta esito {{ classe }}">
+      <h2>Esito proposto: {{ risultato.proposta.value | upper }}</h2>
+      {% for livello, esiti in gruppi %}
+      <details {% if livello.value in ['non conforme', 'da verificare'] %}open{% endif %}>
+        <summary><span class="liv liv-{{ livello.value | replace(' ', '-') }}">{{ livello.simbolo }}</span> {{ livello.value | capitalize }} ({{ esiti | length }})</summary>
+        <ul class="esiti">
+          {% for e in esiti %}<li><strong>{{ e.titolo }}</strong>: {{ e.messaggio }}{% if e.articolo %} <span class="art">({{ e.articolo }})</span>{% endif %}</li>{% endfor %}
+        </ul>
+      </details>
+      {% endfor %}
+      {% if risultato.integrazioni %}
+      <details><summary>Integrazioni che verranno chieste ({{ risultato.integrazioni | length }})</summary>
+        <ol>{% for i in risultato.integrazioni %}<li>{{ i }}</li>{% endfor %}</ol></details>
+      {% endif %}
+      <div class="documenti">
+        <form method="post" action="/pratica/{{ id }}/genera">
+          <button type="submit">Genera documenti</button>
+          <label><input type="checkbox" name="tutti" value="1"> tutte le bozze (verbale, autorizzazione, integrazioni)</label>
+        </form>
+        {% if documenti %}<p>Documenti: {% for d in documenti %}<a href="/pratica/{{ id }}/documenti/{{ d | urlencode }}">{{ d }}</a>{{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
+      </div>
+    </section>
+    {% endif %}
+
+    {% if dubbi %}
+    <section class="carta dubbi">
+      <h2>Da controllare sui documenti ({{ dubbi | length }})</h2>
+      <ul>{% for d in dubbi %}<li><strong>{{ d.campo }}</strong>: {{ d.motivo }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+
+    <form id="modulo" method="post" action="/pratica/{{ id }}" class="destra">
+      {{ modulo }}
+      <div class="fondo">
+        <button type="submit">Salva e verifica</button>
+      </div>
+    </form>
+    <form method="post" action="/pratica/{{ id }}/elimina" onsubmit="return confirm('Eliminare definitivamente la pratica, i PDF e i documenti generati?')">
+      <button type="submit" class="pericolo">Elimina pratica</button>
+    </form>
+  </div>
+</main>
+{% endblock %}
+{% block script %}
+<script>
+document.querySelectorAll('.schede button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    document.querySelectorAll('.schede button').forEach(function (x) { x.classList.remove('attiva'); });
+    b.classList.add('attiva');
+    document.getElementById('pdf').src = b.dataset.src;
+  });
+});
+document.addEventListener('click', function (ev) {
+  var t = ev.target;
+  if (t.classList.contains('rimuovi')) { t.closest('.voce').remove(); }
+  if (t.classList.contains('aggiungi')) {
+    var lista = t.closest('fieldset.lista');
+    var modello = lista.querySelector(':scope > template').innerHTML;
+    var indice = String(Date.now());
+    lista.querySelector(':scope > .voci').insertAdjacentHTML('beforeend', modello.split('__i__').join(indice));
+  }
+});
+</script>
+{% endblock %}
