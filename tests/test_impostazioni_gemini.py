@@ -301,3 +301,54 @@ def test_verifica_sostituisce_modello_non_adatto(client):
     r = client.post(f"/impostazioni/{c.id}/verifica")
     assert "impostato gemini-2.5-flash" in r.text
     assert impostazioni.trova(c.id).modello == "gemini-2.5-flash"
+
+
+# ----------------------------------------------------------- Gemini sovraccarico
+
+class GeminiSovraccarico(GeminiFinto):
+    """Risponde 503 per i primi `errori` tentativi sul modello scelto (sempre, se errori=None)."""
+
+    def __init__(self, errori, **kw):
+        super().__init__(**kw)
+        self._errori = errori
+
+    def _genera(self, **kw):
+        from google.genai import errors
+        self.chiamate.append(kw)
+        precedenti = sum(1 for c in self.chiamate if c["model"] == kw["model"]) - 1
+        if kw["model"] == "gemini-modello-prova" and (self._errori is None or precedenti < self._errori):
+            raise errors.ServerError(503, {"error": {"code": 503, "message": "The model is overloaded.",
+                                                     "status": "UNAVAILABLE"}})
+        self.chiamate.pop()
+        return super()._genera(**kw)
+
+
+@pytest.fixture
+def senza_attese(monkeypatch):
+    monkeypatch.setattr("time.sleep", lambda s: None)
+
+
+def test_503_si_riprova(tmp_path, senza_attese):
+    pdf = tmp_path / "i.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    finto = GeminiSovraccarico(2, testo=estrazione_esempio().model_dump_json())
+    assert estrazione.estrai([pdf], client=finto, chiave=_chiave_gemini()).protocollo == "100001"
+    assert [c["model"] for c in finto.chiamate] == ["gemini-modello-prova"] * 3
+
+
+def test_503_persistente_passa_al_modello_di_riserva(tmp_path, senza_attese):
+    pdf = tmp_path / "i.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    finto = GeminiSovraccarico(None, testo=estrazione_esempio().model_dump_json(),
+                               modelli=[("gemini-modello-prova", ["generateContent"]),
+                                        ("gemini-2.5-flash", ["generateContent"]),
+                                        ("gemini-2.5-flash-image", ["generateContent"])])
+    assert estrazione.estrai([pdf], client=finto, chiave=_chiave_gemini()).protocollo == "100001"
+    assert finto.chiamate[-1]["model"] == "gemini-2.5-flash"
+
+
+def test_503_senza_riserva_messaggio_chiaro(tmp_path, senza_attese):
+    pdf = tmp_path / "i.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    with pytest.raises(ErroreEstrazione, match="sovraccarico"):
+        estrazione.estrai([pdf], client=GeminiSovraccarico(None), chiave=_chiave_gemini())

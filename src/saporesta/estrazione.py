@@ -431,7 +431,7 @@ def estrai_gemini(percorsi: list[Path], chiave: Chiave, client=None) -> Estrazio
             else:
                 contenuti.append(types.Part.from_bytes(data=p.read_bytes(), mime_type="application/pdf"))
         contenuti.append(ISTRUZIONE)
-        return _genera_gemini(client, chiave, contenuti, types)
+        return _genera_gemini_con_riprova(client, chiave, contenuti, types)
     finally:
         for f in caricati:  # i file restano su Google 48 ore: si cancellano subito
             try:
@@ -458,10 +458,61 @@ def _carica_file_gemini(client, percorso: Path):
     return f
 
 
-def _genera_gemini(client, chiave: Chiave, contenuti: list, types) -> Estrazione:
+ATTESE_GEMINI = (10, 30)  # secondi tra un tentativo e l'altro quando Gemini è sovraccarico (503)
+
+
+def _temporaneo(e: Exception) -> bool:
+    """Errori per cui ha senso riprovare: servizio sovraccarico o momentaneamente non disponibile."""
+    from google.genai import errors
+    return isinstance(e, errors.ServerError) and e.code in (500, 502, 503, 504)
+
+
+def _modello_di_riserva(client, attuale: str) -> str | None:
+    """Un altro modello "flash" adatto, da provare quando quello scelto resta sovraccarico."""
+    try:
+        nomi = [(m.name or "").removeprefix("models/") for m in client.models.list()
+                if "generateContent" in (getattr(m, "supported_actions", None) or [])]
+    except Exception:
+        return None
+    return modello_gemini_consigliato([n for n in nomi if n != attuale and "preview" not in n and "exp" not in n])
+
+
+def _genera_gemini_con_riprova(client, chiave: Chiave, contenuti: list, types) -> Estrazione:
+    """Gemini risponde spesso 503 ("model overloaded") nelle ore di punta: si riprova con attese crescenti,
+    poi con un altro modello flash."""
+    import time
+    modello = chiave.modello
+    ultimo: Exception | None = None
+    for attesa in (0, *ATTESE_GEMINI):
+        if attesa:
+            time.sleep(attesa)
+        try:
+            return _genera_gemini(client, modello, contenuti, types)
+        except _ErroreGrezzo as e:
+            if not _temporaneo(e.originale):
+                raise _errore_gemini(e.originale) from e.originale
+            ultimo = e.originale
+    riserva = _modello_di_riserva(client, modello)
+    if riserva:
+        try:
+            return _genera_gemini(client, riserva, contenuti, types)
+        except _ErroreGrezzo as e:
+            ultimo = e.originale
+    raise ErroreEstrazione(
+        f"Gemini è sovraccarico ({getattr(ultimo, 'code', '')}): ho riprovato 3 volte"
+        f"{' e anche con ' + riserva if riserva else ''} senza risposta. Riprovare tra qualche minuto.") from ultimo
+
+
+class _ErroreGrezzo(Exception):
+    def __init__(self, originale: Exception):
+        super().__init__(str(originale))
+        self.originale = originale
+
+
+def _genera_gemini(client, modello: str, contenuti: list, types) -> Estrazione:
     try:
         risposta = client.models.generate_content(
-            model=chiave.modello,
+            model=modello,
             contents=contenuti,
             config=types.GenerateContentConfig(
                 system_instruction=SISTEMA,
@@ -470,8 +521,8 @@ def _genera_gemini(client, chiave: Chiave, contenuti: list, types) -> Estrazione
                 max_output_tokens=32768,
             ),
         )
-    except Exception as e:  # errori di rete e dell'API tradotti in un messaggio leggibile
-        raise _errore_gemini(e) from e
+    except Exception as e:  # tradotti in un messaggio leggibile da chi chiama, dopo gli eventuali tentativi
+        raise _ErroreGrezzo(e) from e
 
     feedback = getattr(risposta, "prompt_feedback", None)
     if feedback is not None and getattr(feedback, "block_reason", None):
