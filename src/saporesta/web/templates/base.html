@@ -42,7 +42,8 @@ textarea { resize: vertical; }
   <h1>{% block intestazione %}{% endblock %}</h1>
   {% block azioni %}{% endblock %}
   {% block navigazione %}
-  <a href="/impostazioni" title="Chiavi AI">Impostazioni</a>
+  <a href="/impostazioni" title="Chiavi AI, utenti e carta intestata">Impostazioni</a>
+  {% if accesso_attivo() and request.state.utente %}<span title="Utente collegato" style="opacity:.8">{{ request.state.utente }}</span>{% endif %}
   {% if accesso_attivo() %}<form method="post" action="/esci" style="margin:0"><button type="submit" class="secondario">Esci</button></form>{% endif %}
   {% endblock %}
 </header>

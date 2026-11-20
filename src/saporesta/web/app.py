@@ -16,7 +16,7 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from pydantic import ValidationError
 
-from .. import archivio, documenti, estrazione, impostazioni, modelli_word
+from .. import archivio, documenti, estrazione, impostazioni, modelli_word, utenti
 from . import accesso
 from ..cli import rapporto
 from ..models import Intervento, Istruttoria, Pratica
@@ -26,6 +26,8 @@ from .moduli import Rendering, analizza, checklist_html, da_modulo, html_errori,
 CARTELLA = Path(__file__).parent
 modelli = Jinja2Templates(directory=str(CARTELLA / "templates"))
 modelli.env.globals["accesso_attivo"] = accesso.attivo
+modelli.env.globals["amministratore"] = lambda request: utenti.is_amministratore(
+    getattr(request.state, "utente", None))
 
 app = FastAPI(title="Saporesta – istruttoria A02", docs_url=None, redoc_url=None)
 
@@ -40,13 +42,24 @@ LIBERI = {"/accesso", "/esci"}
 
 @app.middleware("http")
 async def richiede_accesso(request: Request, call_next):
-    """Con SAPORESTA_PASSWORD impostata, ogni pagina richiede l'accesso."""
-    if accesso.attivo() and request.url.path not in LIBERI \
-            and not accesso.cookie_valido(request.cookies.get(accesso.NOME_COOKIE)):
+    """Con l'accesso attivo (password di emergenza o utenti creati) ogni pagina richiede l'accesso."""
+    request.state.utente = None
+    if accesso.attivo():
+        request.state.utente = accesso.utente_da_cookie(request.cookies.get(accesso.NOME_COOKIE))
+    if accesso.attivo() and request.url.path not in LIBERI and request.state.utente is None:
         if request.method == "GET":
             return _vai("/accesso", dopo=request.url.path)
         return PlainTextResponse("Accesso richiesto.", status_code=401)
+    # chiavi API, carta intestata e utenti si modificano solo da amministratore;
+    # gli altri utenti possono solo cambiare la propria password
+    if request.method == "POST" and request.url.path.startswith("/impostazioni") \
+            and request.url.path != "/impostazioni/mia-password" and not _amministratore(request):
+        return PlainTextResponse("Operazione riservata agli amministratori.", status_code=403)
     return await call_next(request)
+
+
+def _amministratore(request: Request) -> bool:
+    return utenti.is_amministratore(request.state.utente)
 
 
 @app.middleware("http")
@@ -260,6 +273,9 @@ def _pagina_impostazioni(request: Request, messaggio: str = "", errore: str = ""
     return modelli.TemplateResponse(request, "impostazioni.html", {
         "chiavi": imp.chiavi, "attiva": imp.chiave_attiva, "modelli_verificati": MODELLI_VERIFICATI,
         "nomi": impostazioni.NOMI_FORNITORE, "messaggio": messaggio, "errore": errore,
+        "utenti": utenti.elenco(), "utente": request.state.utente, "admin": _amministratore(request),
+        "emergenza": utenti.password_emergenza() is not None, "utente_emergenza": utenti.UTENTE_EMERGENZA,
+        "lunghezza_minima": utenti.LUNGHEZZA_MINIMA,
         "file": str(impostazioni.percorso()), "carta_intestata": modelli_word.ha_carta_intestata(), "da_ambiente": (lambda c: c if c and c.da_ambiente else None)(
             impostazioni.chiave_attiva()),
     })
@@ -333,24 +349,107 @@ def elimina_chiave(id_: str):
     return _vai("/impostazioni", messaggio="Chiave eliminata.")
 
 
+# ------------------------------------------------------------------------ utenti
+
+@app.post("/impostazioni/utenti/aggiungi")
+def aggiungi_utente(request: Request, nome: str = Form(""), password: str = Form(""), conferma: str = Form(""),
+                    amministratore: str = Form("")):
+    if password != conferma:
+        return _vai("/impostazioni", errore="Le due password non coincidono.")
+    prima = not accesso.attivo()
+    try:
+        u = utenti.aggiungi(nome, password, amministratore=bool(amministratore))
+    except utenti.ErroreUtenti as e:
+        return _vai("/impostazioni", errore=str(e))
+    risposta = _vai("/impostazioni", messaggio=f"Utente «{u.nome}» creato.")
+    if prima:  # il portale da ora chiede l'accesso: chi ha creato il primo utente resta dentro con quell'utente
+        _imposta_sessione(risposta, u.nome)
+    return risposta
+
+
+@app.post("/impostazioni/utenti/{nome}/password")
+def password_utente(nome: str, password: str = Form(""), conferma: str = Form("")):
+    if password != conferma:
+        return _vai("/impostazioni", errore="Le due password non coincidono.")
+    try:
+        utenti.imposta_password(nome, password)
+    except KeyError as e:
+        raise HTTPException(404) from e
+    except utenti.ErroreUtenti as e:
+        return _vai("/impostazioni", errore=str(e))
+    return _vai("/impostazioni", messaggio=f"Password di «{nome}» cambiata.")
+
+
+@app.post("/impostazioni/utenti/{nome}/ruolo")
+def ruolo_utente(nome: str, amministratore: str = Form("")):
+    try:
+        utenti.imposta_amministratore(nome, bool(amministratore))
+    except KeyError as e:
+        raise HTTPException(404) from e
+    except utenti.ErroreUtenti as e:
+        return _vai("/impostazioni", errore=str(e))
+    return _vai("/impostazioni", messaggio=f"Ruolo di «{nome}» aggiornato.")
+
+
+@app.post("/impostazioni/utenti/{nome}/elimina")
+def elimina_utente(request: Request, nome: str):
+    if utenti.normalizza(nome) == request.state.utente:
+        return _vai("/impostazioni", errore="Non si può eliminare l'utente con cui si è entrati.")
+    try:
+        utenti.rimuovi(nome)
+    except KeyError as e:
+        raise HTTPException(404) from e
+    except utenti.ErroreUtenti as e:
+        return _vai("/impostazioni", errore=str(e))
+    return _vai("/impostazioni", messaggio=f"Utente «{nome}» eliminato.")
+
+
+@app.post("/impostazioni/mia-password")
+def mia_password(request: Request, attuale: str = Form(""), password: str = Form(""), conferma: str = Form("")):
+    nome = request.state.utente
+    if nome is None or nome == utenti.UTENTE_EMERGENZA:
+        return _vai("/impostazioni", errore="La password di emergenza si cambia nel file .env sul server.")
+    if utenti.autentica(nome, attuale) is None:
+        time.sleep(1)
+        return _vai("/impostazioni", errore="Password attuale errata.")
+    if password != conferma:
+        return _vai("/impostazioni", errore="Le due password non coincidono.")
+    try:
+        utenti.imposta_password(nome, password)
+    except utenti.ErroreUtenti as e:
+        return _vai("/impostazioni", errore=str(e))
+    risposta = _vai("/impostazioni", messaggio="La tua password è stata cambiata.")
+    _imposta_sessione(risposta, nome)  # la vecchia sessione non vale più: se ne apre una nuova
+    return risposta
+
+
 # ----------------------------------------------------------------------- accesso
+
+def _imposta_sessione(risposta, nome: str) -> None:
+    risposta.set_cookie(accesso.NOME_COOKIE, accesso.crea_cookie(nome), max_age=accesso.DURATA_SECONDI, httponly=True,
+                        samesite="lax", secure=os.environ.get("SAPORESTA_HTTPS") == "1")
+
 
 @app.get("/accesso", response_class=HTMLResponse)
 def pagina_accesso(request: Request, dopo: str = "/"):
     if not accesso.attivo():
         return _vai("/")
-    return modelli.TemplateResponse(request, "accesso.html", {"dopo": accesso.destinazione_sicura(dopo), "errore": ""})
+    return modelli.TemplateResponse(request, "accesso.html", {"dopo": accesso.destinazione_sicura(dopo), "errore": "",
+                                                              "utente": ""})
 
 
 @app.post("/accesso")
-def entra(request: Request, password: str = Form(""), dopo: str = Form("/")):
-    if not accesso.password_corretta(password):
+def entra(request: Request, utente: str = Form(""), password: str = Form(""), dopo: str = Form("/")):
+    if not accesso.attivo():
+        return _vai("/")
+    nome = utenti.autentica(utente, password)
+    if nome is None:
         time.sleep(1)  # rallenta i tentativi a forza bruta
         return modelli.TemplateResponse(request, "accesso.html", {
-            "dopo": accesso.destinazione_sicura(dopo), "errore": "Password errata."}, status_code=401)
+            "dopo": accesso.destinazione_sicura(dopo), "errore": "Utente o password errati.", "utente": utente},
+            status_code=401)
     risposta = RedirectResponse(accesso.destinazione_sicura(dopo), status_code=303)
-    risposta.set_cookie(accesso.NOME_COOKIE, accesso.crea_cookie(), max_age=accesso.DURATA_SECONDI, httponly=True,
-                        samesite="lax", secure=os.environ.get("SAPORESTA_HTTPS") == "1")
+    _imposta_sessione(risposta, nome)
     return risposta
 
 

@@ -1,8 +1,11 @@
-"""Accesso con password al portale (attivo solo se è impostata SAPORESTA_PASSWORD).
+"""Accesso al portale con nome utente e password.
 
-La sessione è un cookie firmato con HMAC: "<istante>.<firma>". La chiave di firma deriva da
-un segreto casuale salvato accanto alle impostazioni (permessi 600) e dalla password, quindi
-cambiare la password invalida tutte le sessioni aperte.
+L'accesso è attivo se è impostata SAPORESTA_PASSWORD (utente di emergenza "admin") oppure se nella
+pagina Impostazioni è stato creato almeno un utente (vedi saporesta.utenti).
+
+La sessione è un cookie firmato con HMAC: "<utente>.<istante>.<firma>". La chiave di firma deriva da
+un segreto casuale salvato accanto alle impostazioni (permessi 600) e dall'impronta della password
+dell'utente, quindi cambiare la password o eliminare l'utente invalida le sue sessioni aperte.
 """
 
 from __future__ import annotations
@@ -13,18 +16,14 @@ import os
 import secrets
 import time
 
-from .. import impostazioni
+from .. import impostazioni, utenti
 
 NOME_COOKIE = "saporesta_sessione"
 DURATA_SECONDI = 12 * 3600
 
 
-def password() -> str | None:
-    return os.environ.get("SAPORESTA_PASSWORD") or None
-
-
 def attivo() -> bool:
-    return password() is not None
+    return utenti.attivo()
 
 
 def _segreto() -> bytes:
@@ -37,34 +36,35 @@ def _segreto() -> bytes:
     return p.read_text().strip().encode()
 
 
-def _chiave() -> bytes:
-    return hmac.new(_segreto(), (password() or "").encode(), hashlib.sha256).digest()
+def _firma(utente: str, istante: str) -> str | None:
+    segreto_utente = utenti.segreto_utente(utente)
+    if segreto_utente is None:
+        return None
+    chiave = hmac.new(_segreto(), segreto_utente.encode(), hashlib.sha256).digest()
+    return hmac.new(chiave, f"{utente}.{istante}".encode(), hashlib.sha256).hexdigest()
 
 
-def _firma(istante: str) -> str:
-    return hmac.new(_chiave(), istante.encode(), hashlib.sha256).hexdigest()
-
-
-def crea_cookie(adesso: float | None = None) -> str:
+def crea_cookie(utente: str = utenti.UTENTE_EMERGENZA, adesso: float | None = None) -> str:
     istante = str(int(time.time() if adesso is None else adesso))
-    return f"{istante}.{_firma(istante)}"
+    return f"{utente}.{istante}.{_firma(utente, istante)}"
+
+
+def utente_da_cookie(valore: str | None, adesso: float | None = None) -> str | None:
+    """Nome dell'utente della sessione, o None se il cookie manca, è manomesso o scaduto."""
+    if not valore or valore.count(".") < 2:
+        return None
+    utente, istante, firma = valore.rsplit(".", 2)
+    if not istante.isdigit():
+        return None
+    attesa = _firma(utente, istante)
+    if attesa is None or not hmac.compare_digest(firma, attesa):
+        return None
+    eta = (time.time() if adesso is None else adesso) - int(istante)
+    return utente if 0 <= eta <= DURATA_SECONDI else None
 
 
 def cookie_valido(valore: str | None, adesso: float | None = None) -> bool:
-    if not valore or "." not in valore:
-        return False
-    istante, firma = valore.split(".", 1)
-    if not istante.isdigit() or not hmac.compare_digest(firma, _firma(istante)):
-        return False
-    eta = (time.time() if adesso is None else adesso) - int(istante)
-    return 0 <= eta <= DURATA_SECONDI
-
-
-def password_corretta(tentativo: str) -> bool:
-    attesa = password()
-    if attesa is None:
-        return True
-    return hmac.compare_digest(tentativo.encode(), attesa.encode())
+    return utente_da_cookie(valore, adesso) is not None
 
 
 def destinazione_sicura(dopo: str | None) -> str:

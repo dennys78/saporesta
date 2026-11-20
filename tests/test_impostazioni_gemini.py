@@ -184,9 +184,9 @@ def test_password_obbligatoria_se_impostata(client, monkeypatch):
     r = client.get("/impostazioni", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].startswith("/accesso")
     assert client.post("/impostazioni/aggiungi", data={"fornitore": "gemini", "valore": "x"}).status_code == 401
-    r = client.post("/accesso", data={"password": "sbagliata", "dopo": "/"})
-    assert "Password errata" in r.text
-    r = client.post("/accesso", data={"password": "parola-di-prova", "dopo": "/impostazioni"})
+    r = client.post("/accesso", data={"utente": "admin", "password": "sbagliata", "dopo": "/"})
+    assert "Utente o password errati" in r.text
+    r = client.post("/accesso", data={"utente": "admin", "password": "parola-di-prova", "dopo": "/impostazioni"})
     assert r.status_code == 200 and "Aggiungi una chiave" in r.text and "Esci" in r.text
     client.post("/esci")
     assert client.get("/", follow_redirects=False).status_code == 303
@@ -194,12 +194,13 @@ def test_password_obbligatoria_se_impostata(client, monkeypatch):
 
 def test_accesso_non_reindirizza_fuori(client, monkeypatch):
     monkeypatch.setenv("SAPORESTA_PASSWORD", "p")
-    r = client.post("/accesso", data={"password": "p", "dopo": "//sito-esterno.example"}, follow_redirects=False)
+    r = client.post("/accesso", data={"utente": "admin", "password": "p", "dopo": "//sito-esterno.example"}, follow_redirects=False)
     assert r.headers["location"] == "/"
 
 
-def test_cookie_manomesso_rifiutato():
+def test_cookie_manomesso_rifiutato(monkeypatch):
     from saporesta.web import accesso
+    monkeypatch.setenv("SAPORESTA_PASSWORD", "parola-di-prova")
     c = accesso.crea_cookie()
     assert accesso.cookie_valido(c)
     assert not accesso.cookie_valido(c[:-1] + ("0" if c[-1] != "0" else "1"))
