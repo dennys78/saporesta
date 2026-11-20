@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block titolo %}{{ NOME }} – {{ SOTTOTITOLO }}{% endblock %}</title>
-<link rel="icon" type="image/svg+xml" href="{{ FAVICON }}">
+<link rel="icon" type="image/svg+xml" href="{{ favicon() }}">
 <style>
 :root {
   --sfondo: #f6f5f1; --carta: #ffffff; --testo: #1f2a24; --tenue: #5d6b63; --bordo: #d9ddd6;
@@ -46,7 +46,7 @@ textarea { resize: vertical; }
 </head>
 <body>
 <header class="barra">
-  <a class="casa" href="/" title="{{ NOME }} – {{ SOTTOTITOLO }}">{% include "_logo.svg" %}<span class="marchio"><strong>{{ NOME }}</strong><small>{{ SOTTOTITOLO }}</small></span></a>
+  <a class="casa" href="/" title="{{ NOME }} – {{ SOTTOTITOLO }}">{{ logo_svg() }}<span class="marchio"><strong>{{ NOME }}</strong><small>{{ SOTTOTITOLO }}</small></span></a>
   <h1>{% block intestazione %}{% endblock %}</h1>
   {% block azioni %}{% endblock %}
   {% block navigazione %}

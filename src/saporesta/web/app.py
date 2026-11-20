@@ -28,8 +28,34 @@ modelli = Jinja2Templates(directory=str(CARTELLA / "templates"))
 modelli.env.globals["accesso_attivo"] = accesso.attivo
 modelli.env.globals["NOME"] = "Saporesta"
 modelli.env.globals["SOTTOTITOLO"] = "gestione e valutazione aree di taglio"
-modelli.env.globals["FAVICON"] = "data:image/svg+xml," + quote(
-    (CARTELLA / "templates" / "_logo.svg").read_text(encoding="utf-8").replace("\n", ""))
+# loghi tra cui scegliere nelle Impostazioni (file in web/loghi/)
+LOGHI = {
+    "01": "Abete", "02": "Sezione di tronco", "03": "Bosco di conifere", "04": "Latifoglia", "05": "Foglia",
+    "06": "Particella forestale", "07": "Valutazione del bosco", "08": "Stemma forestale",
+    "09": "Abete verificato", "10": "S di Saporesta",
+}
+
+
+def _svg_logo(codice: str) -> str:
+    return (CARTELLA / "loghi" / f"{codice}.svg").read_text(encoding="utf-8").strip()
+
+
+def _logo_scelto() -> str:
+    codice = impostazioni.carica().logo
+    return codice if codice in LOGHI else "01"
+
+
+def logo_svg(codice: str | None = None) -> Markup:
+    svg = _svg_logo(codice or _logo_scelto())
+    return Markup(svg.replace("<svg ", '<svg class="logo" role="img" aria-label="Saporesta" ', 1))
+
+
+def favicon() -> str:
+    return "data:image/svg+xml," + quote(_svg_logo(_logo_scelto()))
+
+
+modelli.env.globals["logo_svg"] = logo_svg
+modelli.env.globals["favicon"] = favicon
 modelli.env.globals["modello_adatto"] = estrazione.modello_gemini_adatto
 modelli.env.globals["amministratore"] = lambda request: utenti.is_amministratore(
     getattr(request.state, "utente", None))
@@ -309,12 +335,21 @@ def _pagina_impostazioni(request: Request, messaggio: str = "", errore: str = ""
     return modelli.TemplateResponse(request, "impostazioni.html", {
         "chiavi": imp.chiavi, "attiva": imp.chiave_attiva, "modelli_verificati": MODELLI_VERIFICATI,
         "nomi": impostazioni.NOMI_FORNITORE, "messaggio": messaggio, "errore": errore,
+        "loghi": LOGHI, "logo_attuale": _logo_scelto(),
         "utenti": utenti.elenco(), "utente": request.state.utente, "admin": _amministratore(request),
         "emergenza": utenti.password_emergenza() is not None, "utente_emergenza": utenti.UTENTE_EMERGENZA,
         "lunghezza_minima": utenti.LUNGHEZZA_MINIMA,
         "file": str(impostazioni.percorso()), "carta_intestata": modelli_word.ha_carta_intestata(), "da_ambiente": (lambda c: c if c and c.da_ambiente else None)(
             impostazioni.chiave_attiva()),
     })
+
+
+@app.post("/impostazioni/logo")
+def scegli_logo(logo: str = Form("")):
+    if logo not in LOGHI:
+        return _vai("/impostazioni", errore="Logo non valido.")
+    impostazioni.imposta_logo(logo)
+    return _vai("/impostazioni", messaggio=f"Logo cambiato: {LOGHI[logo]}.")
 
 
 @app.get("/impostazioni", response_class=HTMLResponse)

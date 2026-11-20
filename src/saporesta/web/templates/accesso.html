@@ -6,7 +6,7 @@
 <main style="max-width:380px;margin:40px auto">
   <form class="carta" method="post" action="/accesso" style="display:grid;gap:12px">
     <div style="text-align:center;display:grid;justify-items:center;gap:6px;margin-bottom:6px">
-      <span style="width:72px;height:72px;display:block">{% include "_logo.svg" %}</span>
+      <span style="width:72px;height:72px;display:block">{{ logo_svg() }}</span>
       <h2 style="margin:0;color:var(--verde)">{{ NOME }}</h2>
       <div style="color:var(--tenue);font-size:14px">{{ SOTTOTITOLO | capitalize }}</div>
     </div>

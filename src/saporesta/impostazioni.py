@@ -51,6 +51,7 @@ class Chiave(BaseModel):
 class Impostazioni(BaseModel):
     chiavi: list[Chiave] = Field(default_factory=list)
     chiave_attiva: str | None = None
+    logo: str = "01"
 
 
 def maschera(valore: str) -> str:
@@ -125,6 +126,12 @@ def rimuovi(id_: str) -> None:
     imp.chiavi = [c for c in imp.chiavi if c.id != id_]
     if imp.chiave_attiva == id_:
         imp.chiave_attiva = imp.chiavi[0].id if imp.chiavi else None
+    salva(imp)
+
+
+def imposta_logo(logo: str) -> None:
+    imp = carica()
+    imp.logo = logo
     salva(imp)
 
 
