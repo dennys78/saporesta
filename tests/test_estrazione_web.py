@@ -254,3 +254,27 @@ def test_elimina_pratiche_selezionate(tmp_path, monkeypatch):
     r = client.post(f"/pratica/{ids[2]}/elimina")
     assert "Pratica eliminata" in r.text and archivio.elenco() == []
     assert "Nessuna pratica selezionata" in client.post("/pratiche/elimina", data={}).text
+
+
+def test_ritenta_acquisizione_dalla_pratica(tmp_path, monkeypatch):
+    monkeypatch.setenv("SAPORESTA_DATI", str(tmp_path / "pratiche"))
+    monkeypatch.setenv("SAPORESTA_CONFIG", str(tmp_path / "cfg" / "impostazioni.json"))
+    monkeypatch.delenv("SAPORESTA_PASSWORD", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-finta")
+    from saporesta.web import app as modulo_app
+    client = TestClient(modulo_app.app)
+    id_ = archivio.crea("novello", [("istanza.pdf", PDF_PROVA.read_bytes())])
+
+    def guasto(percorsi):
+        raise ErroreEstrazione("Gemini è sovraccarico (503).")
+    monkeypatch.setitem(modulo_app.ESTRATTORE, "funzione", guasto)
+    r = client.get(f"/pratica/{id_}")
+    assert "Dati non ancora acquisiti" in r.text and "Acquisisci con l&#39;AI" in r.text
+    r = client.post(f"/pratica/{id_}/estrai")
+    assert "Estrazione non riuscita" in r.text and archivio.dati(id_) is None
+
+    monkeypatch.setitem(modulo_app.ESTRATTORE, "funzione", lambda percorsi: estrazione_esempio())
+    r = client.post(f"/pratica/{id_}/estrai")
+    assert "Dati estratti dai PDF" in r.text and "Ripeti acquisizione" in r.text
+    assert archivio.dati(id_)["protocollo"] == "100001"
+    assert client.post("/pratica/inesistente/estrai").status_code == 404

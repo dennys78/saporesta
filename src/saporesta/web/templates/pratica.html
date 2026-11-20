@@ -58,6 +58,11 @@ tr.gruppo-checklist th { background: var(--sfondo); }
 .documenti label { display: flex; gap: 6px; align-items: center; }
 .documenti input[type=checkbox] { width: auto; }
 .fondo { display: flex; justify-content: space-between; gap: 10px; }
+.acquisizione { padding: 12px 16px; }
+.acquisizione.da-fare { border-left: 5px solid var(--giallo); background: var(--giallo-chiaro); }
+.riga-ai { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.piccolo { color: var(--tenue); font-size: 13px; }
+#attesa { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); color: #fff; align-items: center; justify-content: center; font-size: 18px; z-index: 10; text-align: center; padding: 20px; }
 </style>
 {% endblock %}
 {% block corpo %}
@@ -73,6 +78,23 @@ tr.gruppo-checklist th { background: var(--sfondo); }
 
   <div class="destra">
     {% if messaggio %}<div class="avviso">{{ messaggio }}</div>{% endif %}
+    {% if pdf %}
+    <section class="carta acquisizione {{ '' if ha_dati else 'da-fare' }}">
+      {% if chiave %}
+      <form method="post" action="/pratica/{{ id }}/estrai" class="riga-ai"
+            {% if ha_dati %}onsubmit="if (!confirm('Rileggere i PDF con l\'AI? I dati attuali della pratica, comprese le correzioni a mano, verranno sostituiti.')) return false; attesa();"{% else %}onsubmit="attesa();"{% endif %}>
+        <div>
+          <strong>{{ 'Dati non ancora acquisiti' if not ha_dati else 'Acquisizione con l\'AI' }}</strong>
+          <div class="piccolo">{% if ha_dati %}Rilegge i PDF e sostituisce i dati attuali.{% else %}Si possono leggere i PDF con l'AI oppure compilare il modulo a mano.{% endif %}
+            Chiave: {{ chiave.descrizione }}.</div>
+        </div>
+        <button type="submit" class="{{ 'secondario' if ha_dati }}">{{ 'Acquisisci con l\'AI' if not ha_dati else 'Ripeti acquisizione' }}</button>
+      </form>
+      {% else %}
+      <div class="piccolo">Per acquisire i dati con l'AI <a href="/impostazioni">aggiungere una chiave</a> nelle Impostazioni.</div>
+      {% endif %}
+    </section>
+    {% endif %}
     {% if errori %}<div class="avviso errore">Dati da correggere:<ul>{% for e in errori %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
 
     {% if risultato %}
@@ -119,9 +141,11 @@ tr.gruppo-checklist th { background: var(--sfondo); }
     </form>
   </div>
 </main>
+<div id="attesa">Lettura dei documenti in corso…<br>può richiedere qualche minuto (se Gemini è sovraccarico si riprova da soli).</div>
 {% endblock %}
 {% block script %}
 <script>
+function attesa() { document.getElementById('attesa').style.display = 'flex'; }
 document.querySelectorAll('.schede button').forEach(function (b) {
   b.addEventListener('click', function () {
     document.querySelectorAll('.schede button').forEach(function (x) { x.classList.remove('attiva'); });

@@ -167,6 +167,8 @@ def _pagina(request: Request, id_: str, dati: dict | None, errori: list[str] | N
         "dubbi": (archivio.estrazione(id_) or {}).get("dubbi", []),
         "documenti": sorted(p.name for p in cartella_doc.iterdir() if p.is_file()),
         "titolo": next((v.titolo for v in archivio.elenco() if v.id == id_), id_),
+        "chiave": impostazioni.chiave_attiva(),
+        "ha_dati": archivio.dati(id_) is not None,
     })
 
 
@@ -192,22 +194,34 @@ async def nuova(request: Request, documenti_pdf: list[UploadFile], etichetta: st
     if not file:
         return _vai("/", errore="Nessun PDF caricato")
     id_ = archivio.crea(etichetta or Path(file[0][0]).stem, file)
-    messaggio = ""
-    if estrai:
-        chiave = impostazioni.chiave_attiva()
-        try:
-            e = ESTRATTORE["funzione"](archivio.pdf(id_))
-            dati = estrazione.in_pratica(e)
-            archivio.salva_dati(id_, dati)
-            archivio.salva_estrazione(id_, e.model_dump(), estrazione.dubbi_dopo_conversione(e),
-                                      chiave.descrizione if chiave else "")
-            messaggio = (f"Dati estratti dai PDF{' con ' + chiave.descrizione if chiave else ''}: controllarli, "
-                         "soprattutto i campi evidenziati, poi salvare.")
-        except estrazione.ErroreEstrazione as err:
-            messaggio = f"Estrazione non riuscita: {err} Compilare i dati a mano."
-        except ValidationError as err:
-            messaggio = "I dati estratti non sono validi: " + "; ".join(html_errori(err.errors()))
+    messaggio = _estrai_pratica(id_) if estrai else ""
     return _vai(f"/pratica/{id_}", messaggio=messaggio)
+
+
+def _estrai_pratica(id_: str) -> str:
+    """Estrae i dati dai PDF della pratica con la chiave attiva e li salva; restituisce il messaggio per la pagina."""
+    chiave = impostazioni.chiave_attiva()
+    try:
+        e = ESTRATTORE["funzione"](archivio.pdf(id_))
+        dati = estrazione.in_pratica(e)
+        archivio.salva_dati(id_, dati)
+        archivio.salva_estrazione(id_, e.model_dump(), estrazione.dubbi_dopo_conversione(e),
+                                  chiave.descrizione if chiave else "")
+        return (f"Dati estratti dai PDF{' con ' + chiave.descrizione if chiave else ''}: controllarli, "
+                "soprattutto i campi evidenziati, poi salvare.")
+    except estrazione.ErroreEstrazione as err:
+        return f"Estrazione non riuscita: {err} Si può ritentare con «Acquisisci con l'AI» o compilare i dati a mano."
+    except ValidationError as err:
+        return "I dati estratti non sono validi: " + "; ".join(html_errori(err.errors()))
+
+
+@app.post("/pratica/{id_}/estrai")
+def estrai_di_nuovo(id_: str):
+    """Ritenta l'acquisizione con l'AI su una pratica già caricata (per esempio dopo un errore 503)."""
+    _404(lambda: archivio.dati(id_))
+    if impostazioni.chiave_attiva() is None:
+        return _vai(f"/pratica/{id_}", messaggio="Nessuna chiave AI impostata: aggiungerne una nella pagina Impostazioni.")
+    return _vai(f"/pratica/{id_}", messaggio=_estrai_pratica(id_))
 
 
 @app.get("/pratica/{id_}", response_class=HTMLResponse)
