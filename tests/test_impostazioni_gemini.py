@@ -350,5 +350,5 @@ def test_503_persistente_passa_al_modello_di_riserva(tmp_path, senza_attese):
 def test_503_senza_riserva_messaggio_chiaro(tmp_path, senza_attese):
     pdf = tmp_path / "i.pdf"
     pdf.write_bytes(b"%PDF-1.4")
-    with pytest.raises(ErroreEstrazione, match="sovraccarico"):
+    with pytest.raises(ErroreEstrazione, match="non risponde.*Risposta di Google: «The model is overloaded.»"):
         estrazione.estrai([pdf], client=GeminiSovraccarico(None), chiave=_chiave_gemini())

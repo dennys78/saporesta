@@ -275,9 +275,26 @@ def estrai(percorsi: list[Path], client=None, chiave: Chiave | None = None) -> E
         chiave = impostazioni.chiave_attiva()
         if chiave is None:
             raise ErroreEstrazione("Nessuna chiave API impostata: aggiungerne una nella pagina Impostazioni.")
-    if chiave is not None and chiave.fornitore == "gemini":
-        return estrai_gemini(percorsi, chiave, client)
-    return estrai_claude(percorsi, chiave, client)
+    import logging
+    import tempfile
+    import time
+
+    from . import riduzione
+    log = logging.getLogger("saporesta")
+    inizio = time.monotonic()
+    # le scansioni pesanti si inviano in copia ridotta; gli originali restano nella pratica
+    with tempfile.TemporaryDirectory(prefix="saporesta-") as cartella:
+        da_inviare = riduzione.riduci_tutti(percorsi, Path(cartella))
+        try:
+            if chiave is not None and chiave.fornitore == "gemini":
+                risultato = estrai_gemini(da_inviare, chiave, client)
+            else:
+                risultato = estrai_claude(da_inviare, chiave, client)
+        except ErroreEstrazione as e:
+            log.warning("Estrazione non riuscita dopo %.0f s: %s", time.monotonic() - inizio, e)
+            raise
+    log.info("Estrazione completata in %.0f s", time.monotonic() - inizio)
+    return risultato
 
 
 # ------------------------------------------------------------------- Claude
@@ -368,8 +385,14 @@ def _errore_gemini(e: Exception) -> ErroreEstrazione:
             return ErroreEstrazione("Modello Gemini non trovato: sceglierne un altro nelle Impostazioni.")
         return ErroreEstrazione(f"Richiesta rifiutata da Gemini ({e.code}): {testo}")
     if isinstance(e, errors.ServerError):
-        return ErroreEstrazione(f"Errore del servizio Gemini ({e.code}): riprovare più tardi.")
+        return ErroreEstrazione(f"Errore del servizio Gemini ({e.code}): riprovare più tardi.{_messaggio_google(e)}")
     return ErroreEstrazione(f"Impossibile raggiungere Gemini: {e.__class__.__name__}.")
+
+
+def _messaggio_google(e: Exception) -> str:
+    """Il testo dell'errore restituito da Google, per capire il motivo reale."""
+    testo = str(getattr(e, "message", "") or "").strip()
+    return f" Risposta di Google: «{testo[:300]}»" if testo else ""
 
 
 def _errore_quota_gemini(e: Exception, testo: str) -> ErroreEstrazione:
@@ -482,6 +505,8 @@ def _genera_gemini_con_riprova(client, chiave: Chiave, contenuti: list, types) -
     poi con un altro modello flash."""
     import time
     modello = chiave.modello
+    import logging
+    log = logging.getLogger("saporesta")
     ultimo: Exception | None = None
     for attesa in (0, *ATTESE_GEMINI):
         if attesa:
@@ -489,6 +514,7 @@ def _genera_gemini_con_riprova(client, chiave: Chiave, contenuti: list, types) -
         try:
             return _genera_gemini(client, modello, contenuti, types)
         except _ErroreGrezzo as e:
+            log.warning("Gemini %s: %s", modello, e.originale)
             if not _temporaneo(e.originale):
                 raise _errore_gemini(e.originale) from e.originale
             ultimo = e.originale
@@ -497,10 +523,14 @@ def _genera_gemini_con_riprova(client, chiave: Chiave, contenuti: list, types) -
         try:
             return _genera_gemini(client, riserva, contenuti, types)
         except _ErroreGrezzo as e:
+            log.warning("Gemini %s: %s", riserva, e.originale)
+            if not _temporaneo(e.originale):
+                raise _errore_gemini(e.originale) from e.originale
             ultimo = e.originale
     raise ErroreEstrazione(
-        f"Gemini è sovraccarico ({getattr(ultimo, 'code', '')}): ho riprovato 3 volte"
-        f"{' e anche con ' + riserva if riserva else ''} senza risposta. Riprovare tra qualche minuto.") from ultimo
+        f"Gemini non risponde ({getattr(ultimo, 'code', '')}): ho riprovato 3 volte"
+        f"{' e anche con ' + riserva if riserva else ''}. Riprovare tra qualche minuto."
+        f"{_messaggio_google(ultimo)}") from ultimo
 
 
 class _ErroreGrezzo(Exception):
