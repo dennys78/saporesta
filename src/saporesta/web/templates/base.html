@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block titolo %}Istruttoria A02{% endblock %}</title>
+<title>{% block titolo %}{{ NOME }} – {{ SOTTOTITOLO }}{% endblock %}</title>
+<link rel="icon" type="image/svg+xml" href="{{ FAVICON }}">
 <style>
 :root {
   --sfondo: #f6f5f1; --carta: #ffffff; --testo: #1f2a24; --tenue: #5d6b63; --bordo: #d9ddd6;
@@ -22,7 +23,14 @@ body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-ser
 a { color: var(--verde); }
 header.barra { display: flex; align-items: center; gap: 16px; padding: 10px 20px; background: var(--carta); border-bottom: 1px solid var(--bordo); position: sticky; top: 0; z-index: 5; }
 header.barra h1 { font-size: 17px; margin: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-header.barra a.casa { text-decoration: none; font-weight: 600; }
+header.barra a.casa { text-decoration: none; display: flex; align-items: center; gap: 9px; color: var(--testo); flex-shrink: 0; }
+svg.logo { display: block; width: 100%; height: 100%; }
+header.barra a.casa svg.logo { width: 34px; height: 34px; flex-shrink: 0; }
+header.barra .marchio { display: flex; flex-direction: column; line-height: 1.15; }
+header.barra .marchio strong { font-size: 16px; color: var(--verde); }
+header.barra .marchio small { font-size: 11.5px; color: var(--tenue); }
+header.barra h1 { border-left: 1px solid var(--bordo); padding-left: 16px; }
+@media (max-width: 760px) { header.barra .marchio small { display: none; } }
 main { padding: 20px; }
 button, .bottone { font: inherit; padding: 7px 14px; border-radius: 6px; border: 1px solid var(--verde); background: var(--verde); color: #fff; cursor: pointer; text-decoration: none; display: inline-block; }
 button.secondario, .bottone.secondario { background: transparent; color: var(--verde); }
@@ -38,7 +46,7 @@ textarea { resize: vertical; }
 </head>
 <body>
 <header class="barra">
-  <a class="casa" href="/">Istruttoria A02</a>
+  <a class="casa" href="/" title="{{ NOME }} – {{ SOTTOTITOLO }}">{% include "_logo.svg" %}<span class="marchio"><strong>{{ NOME }}</strong><small>{{ SOTTOTITOLO }}</small></span></a>
   <h1>{% block intestazione %}{% endblock %}</h1>
   {% block azioni %}{% endblock %}
   {% block navigazione %}

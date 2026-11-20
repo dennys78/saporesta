@@ -1,4 +1,4 @@
-# Saporesta – istruttoria istanze A02
+# Saporesta – gestione e valutazione aree di taglio
 
 Strumento per l'istruttoria delle istanze di autorizzazione al taglio boschivo (modulo A02,
 Regione Calabria) secondo il **Regolamento n. 4/2024** di attuazione della L.R. 45/2012.

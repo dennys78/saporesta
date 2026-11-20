@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
-from urllib.parse import urlencode, urlparse
+from urllib.parse import quote, urlencode, urlparse
 
 from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
@@ -26,11 +26,15 @@ from .moduli import Rendering, analizza, checklist_html, da_modulo, html_errori,
 CARTELLA = Path(__file__).parent
 modelli = Jinja2Templates(directory=str(CARTELLA / "templates"))
 modelli.env.globals["accesso_attivo"] = accesso.attivo
+modelli.env.globals["NOME"] = "Saporesta"
+modelli.env.globals["SOTTOTITOLO"] = "gestione e valutazione aree di taglio"
+modelli.env.globals["FAVICON"] = "data:image/svg+xml," + quote(
+    (CARTELLA / "templates" / "_logo.svg").read_text(encoding="utf-8").replace("\n", ""))
 modelli.env.globals["modello_adatto"] = estrazione.modello_gemini_adatto
 modelli.env.globals["amministratore"] = lambda request: utenti.is_amministratore(
     getattr(request.state, "utente", None))
 
-app = FastAPI(title="Saporesta – istruttoria A02", docs_url=None, redoc_url=None)
+app = FastAPI(title="Saporesta – gestione e valutazione aree di taglio", docs_url=None, redoc_url=None)
 
 # Funzioni sostituibili nei test
 ESTRATTORE = {"funzione": estrazione.estrai}

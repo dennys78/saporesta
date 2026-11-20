@@ -1,0 +1,10 @@
+<svg class="logo" role="img" aria-label="Saporesta" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#2f6b45"/>
+  <path d="M6 51 Q32 46 58 51 V55 H6 Z" fill="#244f35"/>
+  <path d="M28 9 L38 24 H34 L41 35 H36 L44 47 H12 L20 35 H15 L22 24 H18 Z" fill="#e3efe6"/>
+  <rect x="25.5" y="47" width="5" height="6" rx="1" fill="#e3efe6"/>
+  <path d="M48 21 L54.5 31 H51.5 L56 38.5 H52.5 L58 47 H38 L43.5 38.5 H40 L44.5 31 H41.5 Z" fill="#a9d3b5"/>
+  <rect x="46.3" y="47" width="3.4" height="5" rx="1" fill="#a9d3b5"/>
+  <rect x="6" y="45.5" width="7" height="7" rx="1.2" fill="#c9a36b"/>
+  <ellipse cx="9.5" cy="45.5" rx="3.5" ry="1.4" fill="#ecd6a8"/>
+</svg>
