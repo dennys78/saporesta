@@ -2,12 +2,47 @@
 {% block titolo %}{{ titolo }} – {{ NOME }}{% endblock %}
 {% block intestazione %}{{ titolo }}{% endblock %}
 {% block azioni %}
-  <button type="submit" form="modulo">Salva e verifica</button>
+  <button type="submit" form="modulo" class="solo-desktop">Salva e verifica</button>
 {% endblock %}
 {% block stile %}
 <style>
 main.doppia { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 16px; padding: 12px 16px; }
 @media (max-width: 1000px) { main.doppia { grid-template-columns: 1fr; } .visore { position: static !important; height: 70vh !important; } }
+.apri-pdf { margin-left: auto; padding: 8px 12px; white-space: nowrap; font-size: 13px; }
+.elenco-pdf { display: none; padding: 12px; gap: 10px; overflow-y: auto; }
+.elenco-pdf a { display: flex; align-items: center; gap: 10px; padding: 14px; border: 1px solid var(--bordo); border-radius: 8px; text-decoration: none; color: var(--testo); overflow-wrap: anywhere; }
+.elenco-pdf a::before { content: "PDF"; font-size: 11px; font-weight: 700; color: #fff; background: var(--rosso); border-radius: 4px; padding: 3px 5px; }
+.visore.ios .elenco-pdf { display: grid; align-content: start; }
+.visore.ios iframe, .visore.ios .schede { display: none; }
+.viste, .barra-salva { display: none; }
+
+/* telefono (verticale e orizzontale) e tablet piccoli: una vista per volta */
+@media (max-width: 1000px), (max-height: 500px) and (orientation: landscape) {
+  main.doppia { display: block; padding: 0 0 calc(70px + env(safe-area-inset-bottom)); }
+  .viste { display: flex; position: sticky; top: 0; z-index: 4; background: var(--carta); border-bottom: 1px solid var(--bordo); }
+  .viste button { flex: 1; border: 0; border-radius: 0; background: transparent; color: var(--tenue); padding: 12px 8px; border-bottom: 3px solid transparent; font-weight: 600; }
+  .viste button.attiva { color: var(--verde); border-bottom-color: var(--verde); }
+  main.doppia[data-vista="pratica"] .visore, main.doppia[data-vista="documenti"] .destra { display: none !important; }
+  .visore { position: static !important; border-radius: 0; border-left: 0; border-right: 0; height: calc(100dvh - 160px) !important; min-height: 300px; margin: 0; }
+  .destra { padding: 12px; padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  .griglia { grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); }
+  .barra-salva { display: flex; gap: 10px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--carta);
+                 border-top: 1px solid var(--bordo); padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .barra-salva button { flex: 1; font-weight: 600; }
+  .fondo { display: none; }
+  header.barra .solo-desktop { display: none; }
+  table.checklist, table.checklist tbody, table.checklist tr, table.checklist td { display: block; width: 100% !important; }
+  table.checklist thead { display: none; }
+  table.checklist tr { border-bottom: 1px solid var(--bordo); padding: 6px 0; }
+  table.checklist td { border: 0; padding: 3px 0; }
+  table.checklist tr.gruppo-checklist th { display: block; }
+  .stato { margin-right: 14px; padding: 4px 0; }
+  .stato input { width: 20px; height: 20px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .visore { height: calc(100dvh - 60px) !important; }
+  .barra-salva { left: auto; width: 260px; border-left: 1px solid var(--bordo); border-top-left-radius: 10px; }
+}
 .visore { position: sticky; top: 62px; height: calc(100vh - 80px); display: flex; flex-direction: column; background: var(--carta); border: 1px solid var(--bordo); border-radius: 8px; overflow: hidden; }
 .schede { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--bordo); }
 .schede button { background: transparent; color: var(--tenue); border: 0; border-radius: 0; padding: 8px 12px; white-space: nowrap; border-bottom: 2px solid transparent; }
@@ -66,13 +101,22 @@ tr.gruppo-checklist th { background: var(--sfondo); }
 </style>
 {% endblock %}
 {% block corpo %}
-<main class="doppia">
+<main class="doppia" data-vista="pratica">
+  <nav class="viste" aria-label="Viste della pratica">
+    <button type="button" data-vista="pratica" class="attiva">Pratica</button>
+    <button type="button" data-vista="documenti">Documenti PDF ({{ pdf | length }})</button>
+  </nav>
   <aside class="visore">
     {% if pdf %}
     <div class="schede">
       {% for nome in pdf %}<button type="button" data-src="/pratica/{{ id }}/pdf/{{ nome | urlencode }}" class="{{ 'attiva' if loop.first }}">{{ nome }}</button>{% endfor %}
+      <a class="apri-pdf" id="apri-pdf" href="/pratica/{{ id }}/pdf/{{ pdf[0] | urlencode }}" target="_blank" rel="noopener" title="Apre il PDF a tutta pagina">Apri ↗</a>
     </div>
     <iframe id="pdf" src="/pratica/{{ id }}/pdf/{{ pdf[0] | urlencode }}" title="Documento"></iframe>
+    <div class="elenco-pdf">
+      <p class="piccolo" style="margin:0">Tocca un documento per aprirlo a tutta pagina (si torna qui con «Fine» o ‹).</p>
+      {% for nome in pdf %}<a href="/pratica/{{ id }}/pdf/{{ nome | urlencode }}" target="_blank" rel="noopener">{{ nome }}</a>{% endfor %}
+    </div>
     {% else %}<p style="padding:16px">Nessun PDF caricato.</p>{% endif %}
   </aside>
 
@@ -141,6 +185,9 @@ tr.gruppo-checklist th { background: var(--sfondo); }
     </form>
   </div>
 </main>
+<div class="barra-salva">
+  <button type="submit" form="modulo">Salva e verifica</button>
+</div>
 <div id="attesa">Lettura dei documenti in corso…<br>può richiedere qualche minuto (se Gemini è sovraccarico si riprova da soli).</div>
 {% endblock %}
 {% block script %}
@@ -151,8 +198,26 @@ document.querySelectorAll('.schede button').forEach(function (b) {
     document.querySelectorAll('.schede button').forEach(function (x) { x.classList.remove('attiva'); });
     b.classList.add('attiva');
     document.getElementById('pdf').src = b.dataset.src;
+    document.getElementById('apri-pdf').href = b.dataset.src;
   });
 });
+// iPhone e iPad mostrano solo la prima pagina di un PDF dentro la pagina: lo si apre a tutto schermo
+(function () {
+  var ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var v = document.querySelector('.visore');
+  if (ios && v) v.classList.add('ios');
+})();
+// telefono: si passa dalla pratica ai documenti con le linguette in alto
+(function () {
+  var main = document.querySelector('main.doppia');
+  document.querySelectorAll('.viste button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      main.dataset.vista = b.dataset.vista;
+      document.querySelectorAll('.viste button').forEach(function (x) { x.classList.toggle('attiva', x === b); });
+      window.scrollTo(0, 0);
+    });
+  });
+})();
 document.addEventListener('click', function (ev) {
   var t = ev.target;
   if (t.classList.contains('rimuovi')) { t.closest('.voce').remove(); }

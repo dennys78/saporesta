@@ -26,6 +26,15 @@ form.in-linea { display: inline; }
 .scelta-logo input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .scelta-logo .anteprima { width: 64px; height: 64px; display: block; }
 .nome-logo { font-size: 13px; }
+@media (max-width: 760px) {
+  table.utenti thead { display: none; }
+  table.utenti, table.utenti tbody, table.utenti tr, table.utenti td { display: block; width: 100%; }
+  table.utenti tr { padding: 8px 0; }
+  table.utenti td { padding: 4px 0 !important; text-align: left !important; }
+  table.utenti .riga input { max-width: none !important; flex: 1; min-width: 120px; }
+  .loghi { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .scelta-logo .anteprima { width: 52px; height: 52px; }
+}
 </style>
 {% endblock %}
 {% block corpo %}
@@ -55,7 +64,7 @@ form.in-linea { display: inline; }
     {% if emergenza %}Resta sempre valido l'accesso di emergenza con utente <code>{{ utente_emergenza }}</code> e la password
     del file <code>.env</code> sul server.{% else %}Creato il primo utente, il portale chiederà l'accesso.{% endif %}</p>
     {% if utenti %}
-    <table style="width:100%;border-collapse:collapse">
+    <table class="utenti" style="width:100%;border-collapse:collapse">
       <thead><tr><th style="text-align:left">Utente</th><th style="text-align:left">Ruolo</th><th style="text-align:left">Nuova password</th><th></th></tr></thead>
       <tbody>
       {% for u in utenti %}
