@@ -239,3 +239,18 @@ def test_errore_di_validazione_non_salva(client):
     r = client.post(f"/pratica/{id_}", data=_multi(valori))
     assert "Dati da correggere" in r.text and "numero non valido" in r.text
     assert yaml.safe_load((archivio.radice() / id_ / "pratica.yaml").read_text())["inquadramento"]["superficie_intervento_ha"] == 21.5
+
+
+def test_elimina_pratiche_selezionate(tmp_path, monkeypatch):
+    monkeypatch.setenv("SAPORESTA_DATI", str(tmp_path / "pratiche"))
+    monkeypatch.delenv("SAPORESTA_PASSWORD", raising=False)
+    monkeypatch.setenv("SAPORESTA_CONFIG", str(tmp_path / "cfg" / "impostazioni.json"))
+    from saporesta.web.app import app
+    client = TestClient(app)
+    ids = [archivio.crea(f"prova {i}", [("a.pdf", PDF_PROVA.read_bytes())]) for i in range(3)]
+    r = client.post("/pratiche/elimina", data={"id": ids[:2]})
+    assert "Eliminate 2 pratiche" in r.text
+    assert [v.id for v in archivio.elenco()] == [ids[2]]
+    r = client.post(f"/pratica/{ids[2]}/elimina")
+    assert "Pratica eliminata" in r.text and archivio.elenco() == []
+    assert "Nessuna pratica selezionata" in client.post("/pratiche/elimina", data={}).text

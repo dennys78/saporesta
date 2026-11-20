@@ -122,6 +122,7 @@ form.in-linea { display: inline; }
       <form class="in-linea" method="post" action="/impostazioni/{{ c.id }}/verifica"><button type="submit" class="secondario">Verifica e mostra i modelli</button></form>
       <form class="in-linea" method="post" action="/impostazioni/{{ c.id }}/elimina" onsubmit="return confirm('Eliminare la chiave «{{ c.etichetta }}»?')"><button type="submit" class="pericolo">Elimina</button></form>
     </div>
+    {% if c.fornitore == 'gemini' and c.modello and not modello_adatto(c.modello) %}<p class="avviso errore" style="margin:0">Il modello «{{ c.modello }}» non legge documenti: premere «Verifica e mostra i modelli» e scegliere un modello «flash».</p>{% endif %}
     {% if c.fornitore == 'gemini' and not c.modello %}<p class="avviso errore" style="margin:0">Scegliere il modello Gemini: senza modello l'estrazione non parte.</p>{% endif %}
   </section>
   {% endfor %}

@@ -26,6 +26,7 @@ from .moduli import Rendering, analizza, checklist_html, da_modulo, html_errori,
 CARTELLA = Path(__file__).parent
 modelli = Jinja2Templates(directory=str(CARTELLA / "templates"))
 modelli.env.globals["accesso_attivo"] = accesso.attivo
+modelli.env.globals["modello_adatto"] = estrazione.modello_gemini_adatto
 modelli.env.globals["amministratore"] = lambda request: utenti.is_amministratore(
     getattr(request.state, "utente", None))
 
@@ -172,9 +173,9 @@ def _pagina(request: Request, id_: str, dati: dict | None, errori: list[str] | N
 # ------------------------------------------------------------------------ rotte
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request, errore: str = ""):
+def home(request: Request, errore: str = "", messaggio: str = ""):
     return modelli.TemplateResponse(request, "home.html", {
-        "pratiche": archivio.elenco(), "errore": errore, "chiave": impostazioni.chiave_attiva()})
+        "pratiche": archivio.elenco(), "errore": errore, "messaggio": messaggio, "chiave": impostazioni.chiave_attiva()})
 
 
 @app.post("/nuova")
@@ -263,7 +264,24 @@ def scarica(id_: str, nome: str):
 @app.post("/pratica/{id_}/elimina")
 def elimina(id_: str):
     _404(lambda: archivio.elimina(id_))
-    return _vai("/")
+    return _vai("/", messaggio="Pratica eliminata.")
+
+
+@app.post("/pratiche/elimina")
+async def elimina_selezionate(request: Request):
+    """Elimina in un colpo le pratiche spuntate nell'elenco della pagina iniziale."""
+    modulo = await request.form()
+    scelte = [v for v in modulo.getlist("id") if isinstance(v, str)]
+    eliminate = 0
+    for id_ in scelte:
+        try:
+            archivio.elimina(id_)
+            eliminate += 1
+        except archivio.PraticaNonTrovata:
+            pass
+    if not eliminate:
+        return _vai("/", errore="Nessuna pratica selezionata.")
+    return _vai("/", messaggio=f"Eliminate {eliminate} pratiche." if eliminate > 1 else "Pratica eliminata.")
 
 
 # ------------------------------------------------------------------ impostazioni
@@ -298,11 +316,13 @@ def aggiungi_chiave(fornitore: str = Form(...), valore: str = Form(...), etichet
         trovati = VERIFICATORE["funzione"](provvisoria)
     except estrazione.ErroreEstrazione as e:
         return _vai("/impostazioni", errore=f"Chiave non salvata: {e}")
-    chiave = impostazioni.aggiungi(fornitore, etichetta, valore, a_pagamento=bool(a_pagamento))
+    consigliato = estrazione.modello_gemini_consigliato(trovati) if fornitore == "gemini" else None
+    chiave = impostazioni.aggiungi(fornitore, etichetta, valore, a_pagamento=bool(a_pagamento), modello=consigliato)
     MODELLI_VERIFICATI[chiave.id] = trovati
     msg = "Chiave verificata e salvata."
     if fornitore == "gemini":
-        msg += " Scegliere ora il modello Gemini da usare."
+        msg += (f" Modello impostato: {consigliato} (si può cambiare qui sotto)." if consigliato
+                else " Scegliere ora il modello Gemini da usare.")
     return _vai("/impostazioni", messaggio=msg)
 
 
@@ -316,7 +336,13 @@ def verifica_chiave(id_: str):
         MODELLI_VERIFICATI[id_] = VERIFICATORE["funzione"](chiave)
     except estrazione.ErroreEstrazione as e:
         return _vai("/impostazioni", errore=f"{chiave.etichetta}: {e}")
-    return _vai("/impostazioni", messaggio=f"{chiave.etichetta}: chiave valida, {len(MODELLI_VERIFICATI[id_])} modelli disponibili.")
+    msg = f"{chiave.etichetta}: chiave valida, {len(MODELLI_VERIFICATI[id_])} modelli disponibili."
+    if chiave.fornitore == "gemini" and not estrazione.modello_gemini_adatto(chiave.modello):
+        consigliato = estrazione.modello_gemini_consigliato(MODELLI_VERIFICATI[id_])
+        if consigliato:
+            impostazioni.aggiorna(id_, modello=consigliato)
+            msg += f" Il modello precedente non legge documenti: impostato {consigliato}."
+    return _vai("/impostazioni", messaggio=msg)
 
 
 @app.post("/impostazioni/{id_}/modifica")

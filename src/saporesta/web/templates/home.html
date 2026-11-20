@@ -16,12 +16,13 @@ td, th { text-align: left; padding: 8px; border-bottom: 1px solid var(--bordo); 
 {% endblock %}
 {% block corpo %}
 <main>
+  {% if messaggio %}<div class="avviso">{{ messaggio }}</div>{% endif %}
   {% if errore %}<div class="avviso errore">{{ errore }}</div>{% endif %}
   <form class="carta nuova" method="post" action="/nuova" enctype="multipart/form-data" id="nuova">
     <h2 style="margin-top:0">Nuova pratica</h2>
     <label><span>Documenti PDF</span>
       <input type="file" name="documenti_pdf" accept="application/pdf" multiple required>
-      <span class="piccolo">Istanza A02, schede A02.3 e A02.4, relazione tecnica, piedilisti… (in tutto massimo 30 MB con Claude, 19 MB con Gemini). Le tavole cartografiche possono restare fuori.</span>
+      <span class="piccolo">Istanza A02, schede A02.3 e A02.4, relazione tecnica, piedilisti… (in tutto massimo 23 MB con Claude; con Gemini fino a 50 MB per file). Le tavole cartografiche possono restare fuori.</span>
     </label>
     <label><span>Nome della pratica (facoltativo)</span><input type="text" name="etichetta" placeholder="es. Rossi Crotone"></label>
     <div class="riga">
@@ -36,12 +37,23 @@ td, th { text-align: left; padding: 8px; border-bottom: 1px solid var(--bordo); 
   <section class="carta">
     <h2 style="margin-top:0">Pratiche in corso</h2>
     {% if pratiche %}
+    <form method="post" action="/pratiche/elimina" id="elenco">
     <table>
+      <tr><th style="width:28px"><input type="checkbox" id="tutte" title="Seleziona tutte" style="width:auto"></th>
+          <th>Pratica</th><th>Modificata</th><th></th></tr>
       {% for p in pratiche %}
-      <tr><td><a href="/pratica/{{ p.id }}">{{ p.titolo }}</a>{% if not p.ha_dati %} <span class="piccolo">(senza dati)</span>{% endif %}</td>
-          <td class="piccolo">{{ p.modificata.strftime('%d/%m/%Y %H:%M') }}</td></tr>
+      <tr><td><input type="checkbox" name="id" value="{{ p.id }}" class="scelta" style="width:auto"></td>
+          <td><a href="/pratica/{{ p.id }}">{{ p.titolo }}</a>{% if not p.ha_dati %} <span class="piccolo">(senza dati)</span>{% endif %}</td>
+          <td class="piccolo">{{ p.modificata.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td style="text-align:right"><button type="submit" class="pericolo" formaction="/pratica/{{ p.id }}/elimina"
+              data-titolo="{{ p.titolo }}" onclick="return confirm('Eliminare definitivamente la pratica «' + this.dataset.titolo + '» con i suoi PDF e documenti?')">Elimina</button></td></tr>
       {% endfor %}
     </table>
+    <div class="riga" style="margin-top:12px">
+      <button type="submit" class="pericolo" id="elimina-scelte" disabled
+              onclick="return confirm('Eliminare definitivamente le pratiche selezionate con i loro PDF e documenti?')">Elimina selezionate</button>
+    </div>
+    </form>
     {% else %}<p class="piccolo">Nessuna pratica.</p>{% endif %}
   </section>
 </main>
@@ -49,6 +61,14 @@ td, th { text-align: left; padding: 8px; border-bottom: 1px solid var(--bordo); 
 {% endblock %}
 {% block script %}
 <script>
+(function () {
+  var tutte = document.getElementById('tutte'), bottone = document.getElementById('elimina-scelte');
+  if (!tutte) return;
+  var scelte = document.querySelectorAll('.scelta');
+  function aggiorna() { bottone.disabled = !Array.prototype.some.call(scelte, function (c) { return c.checked; }); }
+  tutte.addEventListener('change', function () { scelte.forEach(function (c) { c.checked = tutte.checked; }); aggiorna(); });
+  scelte.forEach(function (c) { c.addEventListener('change', aggiorna); });
+})();
 document.getElementById('nuova').addEventListener('submit', function () {
   if (this.estrai.checked && !this.estrai.disabled) document.getElementById('attesa').style.display = 'flex';
 });
