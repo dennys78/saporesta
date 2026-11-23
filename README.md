@@ -64,6 +64,33 @@ piè di pagina) oppure con `uv run saporesta modelli --carta-intestata <document
 intestata i documenti escono su foglio bianco. I modelli si possono ritoccare in Word senza spezzare i
 segnaposto `{{ ... }}` e `{%p ... %}`.
 
+## Tavole di cubatura
+
+L'analisi indica quale tavola di cubatura ha usato il progettista (letta dall'istanza) e ricalcola i volumi del
+quadro per classi diametriche con la stessa tavola, segnalando le classi fuori tolleranza (±5%, in `regole.yaml`),
+gli errori di unità di misura (dm³/m³), la tavola di specie o di forma di governo diversa (es. tavola da fustaia
+su un ceduo), le altezze lontane dalla tariffa TaCAL e la differenza tra la somma delle classi e la scheda A02.3.
+
+| Tavola | Ricalcolo |
+|---|---|
+| Tabacchi et al. 2011 (INFC) – 27 specie | sì, equazioni a doppia entrata |
+| Castellani et al. 1984 (ISAFA-IFNI) – 18 tavole, fustaia e ceduo | sì, polinomi a doppia entrata |
+| TaCAL 2016 (Calabria) – 20 specie × 9 tariffe | sì, tariffa dichiarata o dedotta dalle altezze |
+| Emilia-Romagna, Trento, tavole locali | no: segnalata per la verifica manuale |
+
+I coefficienti sono in `src/saporesta/tavole/*.json`, estratti dai PDF con `strumenti/estrai_tavole.py`, che
+controlla ogni equazione sui valori stampati nelle tavole.
+
+Il prelievo massimo nelle fustaie (art. 38 c. 9) segue la lettura dell'ufficio: 25% con provvigione almeno 1,8
+volte la minimale, 20% da 1,6, 15% da 1,4, 10% da 1,2; sotto 1,2 il taglio colturale non è ammesso; da 2 volte
+in su il prelievo può superare il 25% se motivato (c. 10).
+
+## Documenti prodotti
+
+A ogni generazione: rapporto istruttorio (uso interno) e verbale istruttorio in Word; in più la richiesta di
+integrazioni oppure l'autorizzazione, secondo l'esito. Il verbale propone l'autorizzazione o la richiesta di
+integrazioni a seconda dei casi.
+
 ## Dati di esempio
 
 `casi/esempio_ceduo.yaml` e `casi/esempio_fustaia.yaml` sono pratiche **fittizie** ricalcate su due

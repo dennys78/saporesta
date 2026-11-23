@@ -47,11 +47,16 @@ fustaia:
     cerro_latifoglie_mesofile_misti_pino_nero_laricio: 250
     faggio_misti_montani: 350
   # art. 38 c.9 - prelievo massimo in funzione della provvigione rispetto alla minimale
+  # art. 38 c.9-10, lettura dell'ufficio (foglio "CALCOLO PROVVIGIONI"): la percentuale indica di quanto
+  # la provvigione presente supera la minimale. Es. "≥ 80% della minimale" = provvigione ≥ 1,8 volte la minimale.
+  # Da 2 volte in su (elevata provvigione, c. 10) il prelievo può superare il 25%, se motivato.
+  # Sotto 1,2 volte la minimale il taglio colturale non è ammesso.
+  provvigione_elevata_multiplo: 2.0
   prelievo_per_provvigione:
-    - {da_pct: 80, max_prelievo_pct: 25}
-    - {da_pct: 60, max_prelievo_pct: 20}
-    - {da_pct: 40, max_prelievo_pct: 15}
-    - {da_pct: 20, max_prelievo_pct: 10}
+    - {da_multiplo: 1.8, max_prelievo_pct: 25}
+    - {da_multiplo: 1.6, max_prelievo_pct: 20}
+    - {da_multiplo: 1.4, max_prelievo_pct: 15}
+    - {da_multiplo: 1.2, max_prelievo_pct: 10}
   intervallo_minimo_anni: 10                    # art. 38 c.11
   # art. 39 c.5 - diradamenti: % massima di area basimetrica
   diradamento_g_max_pct_sotto_30: 15
@@ -106,3 +111,7 @@ specie:
   douglasia:            {fustaia: cerro_latifoglie_mesofile_misti_pino_nero_laricio}
   abete bianco:         {fustaia: faggio_misti_montani}
   sughera:              {fustaia: pini_querceti_mediterranei}
+
+cubatura:
+  tolleranza_pct: 5          # scarto ammesso tra volume dichiarato e volume ricalcolato con la tavola
+  tolleranza_altezza_m: 1.0  # TaCAL: scarto ammesso tra altezza dichiarata e altezza della tariffa

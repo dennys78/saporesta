@@ -1,0 +1,312 @@
+{
+ "C-AbiesAlba": {
+  "nome": "Abete bianco",
+  "scientifico": "Abies alba",
+  "b": [
+   -1.8381,
+   0.037836,
+   0.39934000000000003
+  ],
+  "unita": "dm3",
+  "pagina": 35,
+  "righe_verificate": 24
+ },
+ "C-Cupressus": {
+  "nome": "Cipressi",
+  "scientifico": "Cupressus spp.",
+  "b": [
+   -2.6735,
+   0.03659,
+   0.6472500000000001
+  ],
+  "unita": "dm3",
+  "pagina": 49,
+  "righe_verificate": 24
+ },
+ "C-Larix": {
+  "nome": "Larice",
+  "scientifico": "Larix decidua",
+  "b": [
+   -16.519,
+   0.029979000000000002,
+   3.1506
+  ],
+  "unita": "dm3",
+  "pagina": 63,
+  "righe_verificate": 24
+ },
+ "C-PiceaAbies": {
+  "nome": "Abete rosso",
+  "scientifico": "Picea abies",
+  "b": [
+   -9.1298,
+   0.034866,
+   1.4633
+  ],
+  "unita": "dm3",
+  "pagina": 77,
+  "righe_verificate": 24
+ },
+ "C-PinusCembra": {
+  "nome": "Pino cembro",
+  "scientifico": "Pinus cembra",
+  "b": [
+   2.8521,
+   0.039504000000000004
+  ],
+  "unita": "dm3",
+  "pagina": 91,
+  "righe_verificate": 24
+ },
+ "C-PinusHalepensis": {
+  "nome": "Pino d'Aleppo",
+  "scientifico": "Pinus halepensis",
+  "b": [
+   -0.12508,
+   0.031518000000000004,
+   2.3748
+  ],
+  "unita": "dm3",
+  "pagina": 105,
+  "righe_verificate": 24
+ },
+ "C-PinusLaricio": {
+  "nome": "Pino laricio",
+  "scientifico": "Pinus laricio",
+  "b": [
+   6.4383,
+   0.038594
+  ],
+  "unita": "dm3",
+  "pagina": 119,
+  "righe_verificate": 24
+ },
+ "C-PinusNigra": {
+  "nome": "Pino nero",
+  "scientifico": "Pinus nigra",
+  "b": [
+   -21.48,
+   0.033448000000000006,
+   2.9088
+  ],
+  "unita": "dm3",
+  "pagina": 133,
+  "righe_verificate": 24
+ },
+ "C-PinusPinaster": {
+  "nome": "Pino marittimo",
+  "scientifico": "Pinus pinaster",
+  "b": [
+   2.9963,
+   0.038302
+  ],
+  "unita": "dm3",
+  "pagina": 147,
+  "righe_verificate": 24
+ },
+ "C-PinusPinea": {
+  "nome": "Pino domestico",
+  "scientifico": "Pinus pinea",
+  "b": [
+   -0.40404,
+   0.041113000000000004
+  ],
+  "unita": "dm3",
+  "pagina": 161,
+  "righe_verificate": 24
+ },
+ "C-PinusSylvestris": {
+  "nome": "Pino silvestre",
+  "scientifico": "Pinus sylvestris",
+  "b": [
+   3.1803,
+   0.039899000000000004
+  ],
+  "unita": "dm3",
+  "pagina": 175,
+  "righe_verificate": 24
+ },
+ "C-PinuzEsotici": {
+  "nome": "Pini esotici",
+  "scientifico": "Pinus spp.",
+  "b": [
+   2.6279,
+   0.033389
+  ],
+  "unita": "dm3",
+  "pagina": 189,
+  "righe_verificate": 24
+ },
+ "C-Pseudotsuga": {
+  "nome": "Douglasia",
+  "scientifico": "Pseudotsuga menziesii",
+  "b": [
+   -7.9946,
+   0.033343,
+   1.2186
+  ],
+  "unita": "dm3",
+  "pagina": 203,
+  "righe_verificate": 24
+ },
+ "C-zPiccoleConifere_IT": {
+  "nome": "Altre conifere",
+  "scientifico": "conifere minori",
+  "b": [
+   2.1414,
+   0.034914
+  ],
+  "unita": "dm3",
+  "pagina": 217,
+  "righe_verificate": 15
+ },
+ "L-Acer": {
+  "nome": "Aceri",
+  "scientifico": "Acer spp.",
+  "b": [
+   1.6905,
+   0.037082000000000004
+  ],
+  "unita": "dm3",
+  "pagina": 233,
+  "righe_verificate": 24
+ },
+ "L-Alnus": {
+  "nome": "Ontani",
+  "scientifico": "Alnus spp.",
+  "b": [
+   -22.932000000000002,
+   0.032641,
+   2.9991
+  ],
+  "unita": "dm3",
+  "pagina": 247,
+  "righe_verificate": 24
+ },
+ "L-Carpinus": {
+  "nome": "Carpini",
+  "scientifico": "Carpinus spp.",
+  "b": [
+   -1.4983,
+   0.038828
+  ],
+  "unita": "dm3",
+  "pagina": 261,
+  "righe_verificate": 24
+ },
+ "L-Castanea": {
+  "nome": "Castagno",
+  "scientifico": "Castanea sativa",
+  "b": [
+   -2.001,
+   0.036524,
+   0.7446600000000001
+  ],
+  "unita": "dm3",
+  "pagina": 275,
+  "righe_verificate": 24
+ },
+ "L-Eucalyptus": {
+  "nome": "Eucalitti",
+  "scientifico": "Eucalyptus spp.",
+  "b": [
+   -1.3789,
+   0.045811000000000004
+  ],
+  "unita": "dm3",
+  "pagina": 289,
+  "righe_verificate": 24
+ },
+ "L-Fagus": {
+  "nome": "Faggio",
+  "scientifico": "Fagus sylvatica",
+  "b": [
+   0.8115100000000001,
+   0.038965
+  ],
+  "unita": "dm3",
+  "pagina": 303,
+  "righe_verificate": 24
+ },
+ "L-Fraxinus": {
+  "nome": "Frassini",
+  "scientifico": "Fraxinus spp.",
+  "b": [
+   -0.11137,
+   0.039108000000000004
+  ],
+  "unita": "dm3",
+  "pagina": 317,
+  "righe_verificate": 24
+ },
+ "L-QuercusCerris": {
+  "nome": "Cerro",
+  "scientifico": "Quercus cerris",
+  "b": [
+   -0.043221,
+   0.038079
+  ],
+  "unita": "dm3",
+  "pagina": 331,
+  "righe_verificate": 24
+ },
+ "L-QuercusIlex": {
+  "nome": "Leccio",
+  "scientifico": "Quercus ilex",
+  "b": [
+   -2.2219,
+   0.039685000000000005,
+   0.6276200000000001
+  ],
+  "unita": "dm3",
+  "pagina": 345,
+  "righe_verificate": 24
+ },
+ "L-QuercusPubescens": {
+  "nome": "Roverella",
+  "scientifico": "Quercus pubescens",
+  "b": [
+   0.51025,
+   0.045183999999999995,
+   -0.36026
+  ],
+  "unita": "dm3",
+  "pagina": 359,
+  "righe_verificate": 24
+ },
+ "L-Robinia": {
+  "nome": "Robinia",
+  "scientifico": "Robinia pseudoacacia",
+  "b": [
+   -2.1214,
+   0.037123,
+   0.14296
+  ],
+  "unita": "dm3",
+  "pagina": 373,
+  "righe_verificate": 24
+ },
+ "L-Salix": {
+  "nome": "Salici",
+  "scientifico": "Salix spp.",
+  "b": [
+   -2.314,
+   0.038926
+  ],
+  "unita": "dm3",
+  "pagina": 387,
+  "righe_verificate": 24
+ },
+ "L-zAltreLatifoglie": {
+  "nome": "Altre latifoglie",
+  "scientifico": "latifoglie minori",
+  "b": [
+   2.3118,
+   0.031278,
+   0.37159000000000003
+  ],
+  "unita": "dm3",
+  "pagina": 401,
+  "righe_verificate": 24
+ }
+}

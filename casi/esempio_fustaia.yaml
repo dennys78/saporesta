@@ -82,6 +82,12 @@ martellata:
   colore_vernice: nero
   sezione: Sezione A
 
+cubatura:
+  tavola: tabacchi_2011
+  tavola_dichiarata: "Tavole di cubatura INFC (Tabacchi et al., 2011) per il pino laricio"
+  classi:
+    - {d_cm: 45, h_m: 23.9, n_piante: 27, v_totale_m3: 51.97}
+
 riscontri:
   - {campo: "volume prelevato (m³)", documento: "piedilista di martellata", valore: "51,97"}
   - {campo: "volume prelevato (m³)", documento: "statistica forestale A02.4", valore: "51,5"}

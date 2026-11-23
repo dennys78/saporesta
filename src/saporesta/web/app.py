@@ -18,7 +18,6 @@ from pydantic import ValidationError
 
 from .. import archivio, documenti, estrazione, impostazioni, modelli_word
 from . import accesso
-from ..cli import rapporto
 from ..models import Intervento, Istruttoria, Pratica
 from ..verifiche import Livello, esegui
 from .moduli import Rendering, analizza, checklist_html, da_modulo, html_errori, unisci
@@ -67,6 +66,7 @@ SEZIONI_PRATICA = [
     ("Inquadramento territoriale", ["inquadramento"]),
     ("Vincoli dichiarati", ["vincoli"]),
     ("Scheda tecnica A02.3", ["scheda"]),
+    ("Tavola di cubatura e classi diametriche", ["cubatura"]),
     ("Tagliate e martellata", ["tagliate", "martellata"]),
     ("Versamento e coerenza tra documenti", ["versamento", "riscontri"]),
 ]
@@ -98,6 +98,8 @@ def _campi_dubbi(id_: str) -> dict[str, str]:
         "eta_min": "intervento.popolamento.eta_min", "eta_max": "intervento.popolamento.eta_max",
         "anno_ultimo_taglio": "intervento.popolamento.anno_ultimo_taglio",
         "versamento_importo": "versamento.importo_totale",
+        "tavola_cubatura": "cubatura.tavola", "tavola_cubatura_testo": "cubatura.tavola_dichiarata",
+        "tariffa_tacal": "cubatura.tariffa", "classi_diametriche": "cubatura.classi",
     }
     risultato: dict[str, str] = {}
     for d in est.get("dubbi", []):
@@ -225,7 +227,9 @@ def genera(id_: str, tutti: str = Form("")):
     p = _404(lambda: archivio.carica(id_))
     r = esegui(p)
     cartella = archivio.cartella_documenti(id_)
-    (cartella / "rapporto_istruttoria.md").write_text(rapporto(p, r), encoding="utf-8")
+    vecchio = cartella / "rapporto_istruttoria.md"
+    vecchio.unlink(missing_ok=True)
+    documenti.genera_rapporto(p, r, cartella / f"rapporto_istruttoria_{p.protocollo or 'bozza'}.docx")
     tipi = list(documenti.MODELLI) if tutti else documenti.documenti_per_proposta(r)
     for tipo in tipi:
         nome = documenti.MODELLI[tipo].replace(".docx", f"_{p.protocollo or 'bozza'}.docx")

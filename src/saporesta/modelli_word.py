@@ -25,6 +25,8 @@ from docx.shared import Cm, Pt
 CARTELLA_MODELLI = Path(os.environ.get("SAPORESTA_MODELLI", Path(__file__).resolve().parents[2] / "modelli"))
 BASE = CARTELLA_MODELLI / "base_carta_intestata.docx"
 NOMI_MODELLI = ["verbale_istruttorio.docx", "autorizzazione.docx", "richiesta_integrazioni.docx"]
+# aumentare quando cambia il testo dei modelli: le installazioni esistenti li rigenerano da sole
+VERSIONE_MODELLI = "2"
 
 FONT = "Times New Roman"
 
@@ -322,6 +324,7 @@ def modello_verbale() -> Path:
 
     s.par("Il Responsabile del Procedimento, in esito all'istanza in esame ed alla relativa istruttoria:", prima=6)
     s.par(("VISTI", "b"), " l'istanza e la relativa documentazione tecnica/amministrativa e l'istruttoria sopra riportata;")
+    s.se("autorizzabile")
     s.par(("RITENUTO", "b"), ", pertanto, che l'istanza e i relativi allegati tecnico/amministrativi sono conformi, coerenti ed "
           "esaustivi rispetto alla vigente normativa di settore;")
     s.par(("PROPONE", "b"), allinea="centro", prima=6)
@@ -344,6 +347,23 @@ def modello_verbale() -> Path:
           "natura esistenti sull'area oggetto di intervento e subordinatamente all'osservanza del Reg. n. 4/2024 e delle "
           "prescrizioni di seguito indicate:")
     s.elenco("prescrizioni_specifiche")
+    s.tag("{%p else %}")
+    s.par(("RITENUTO", "b"), " che, allo stato degli atti, non sussistono i requisiti, le condizioni di ammissibilità ed i "
+          "presupposti rilevanti per l'adozione del provvedimento di autorizzazione;")
+    s.par(("PROPONE", "b"), allinea="centro", prima=6)
+    s.par("La comunicazione all'istante della sospensione dei termini per concludere il procedimento e la richiesta dei "
+          "seguenti elementi integrativi:")
+    s.tag("{%p for x in integrazioni %}")
+    s.par("{{ loop.index }}.\t{{ x }};", rientro=0.8, sporgente=0.6)
+    s.tag("{%p endfor %}")
+    s.se("rilievi")
+    s.par("nonché la presentazione di controdeduzioni, ovvero la rimodulazione del progetto, in merito ai seguenti profili di "
+          "non conformità al Reg. n. 4/2024:")
+    s.tag("{%p for x in rilievi %}")
+    s.par("–\t{{ x }}", rientro=0.8, sporgente=0.5)
+    s.tag("{%p endfor %}")
+    s.fine_se()
+    s.fine_se()
     s.par("Letto, confermato e sottoscritto, il presente verbale viene sottoposto al Dirigente per il seguito di competenza.",
           prima=6)
     s.par("{{ luogo_data }}", allinea="sinistra", prima=6)
@@ -452,8 +472,10 @@ def ha_carta_intestata() -> bool:
 
 
 def assicura_modelli() -> None:
-    """Crea i modelli mancanti (al primo avvio di una nuova installazione)."""
-    if not all((CARTELLA_MODELLI / n).exists() for n in NOMI_MODELLI):
+    """Crea i modelli mancanti o di una versione precedente (la carta intestata caricata resta)."""
+    versione = CARTELLA_MODELLI / "versione.txt"
+    aggiornati = versione.exists() and versione.read_text().strip() == VERSIONE_MODELLI
+    if not aggiornati or not all((CARTELLA_MODELLI / n).exists() for n in NOMI_MODELLI):
         crea_tutti()
 
 
@@ -461,7 +483,9 @@ def crea_tutti(sorgente_carta_intestata: Path | None = None) -> list[Path]:
     CARTELLA_MODELLI.mkdir(parents=True, exist_ok=True)
     if sorgente_carta_intestata is not None:
         crea_base(sorgente_carta_intestata)
-    return [modello_verbale(), modello_autorizzazione(), modello_integrazioni()]
+    creati = [modello_verbale(), modello_autorizzazione(), modello_integrazioni()]
+    (CARTELLA_MODELLI / "versione.txt").write_text(VERSIONE_MODELLI)
+    return creati
 
 
 __all__ = ["crea_base", "crea_tutti", "assicura_modelli", "ha_carta_intestata", "CARTELLA_MODELLI"]

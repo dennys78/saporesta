@@ -32,9 +32,11 @@ def provvigione_minimale(p: Pratica) -> tuple[float | None, str | None]:
 
 
 def prelievo_massimo(provvigione: float, minima: float) -> float | None:
-    rapporto = provvigione / minima * 100
+    """Prelievo massimo (frazione) secondo l'art. 38 c. 9, letto come eccedenza sulla minimale:
+    provvigione ≥ 1,8 volte la minimale -> 25%, ≥ 1,6 -> 20%, ≥ 1,4 -> 15%, ≥ 1,2 -> 10%, sotto -> None."""
+    rapporto = provvigione / minima
     for fascia in regole()["fustaia"]["prelievo_per_provvigione"]:
-        if rapporto >= fascia["da_pct"]:
+        if rapporto >= fascia["da_multiplo"]:
             return fascia["max_prelievo_pct"] / 100
     return None
 
@@ -65,20 +67,29 @@ def provvigione(p: Pratica) -> list[Esito]:
     prel = ind.get("prelievo_volume")
     if prima is not None and prel is not None:
         massimo = prelievo_massimo(prima, minima)
+        rapporto = prima / minima
+        elevata = rapporto >= regole()["fustaia"]["provvigione_elevata_multiplo"]
+        base = (f"provvigione prima del taglio {num_breve(prima, 1)} m³/ha, pari a {num_breve(rapporto, 2)} volte la "
+                f"minimale di {num_breve(minima)} m³/ha")
         if massimo is None:
             esiti.append(Esito("fus.prelievo", "Intensità del prelievo", Livello.NON_CONFORME,
-                               f"Provvigione {num_breve(prima, 1)} m³/ha inferiore al 20% della minimale: prelievo non ammesso.",
+                               f"Taglio colturale non ammesso: {base}, sotto la soglia di 1,2 volte (prelievo massimo 10%).",
                                "art. 38 c. 9"))
+        elif prel > massimo + 1e-9 and elevata:
+            esiti.append(Esito("fus.prelievo", "Intensità del prelievo", Livello.ATTENZIONE,
+                               f"Prelievo {pct(prel)} della massa oltre il 25%, ammissibile per elevata provvigione ({base}) "
+                               "se motivato da elevata fertilità o mancate utilizzazioni.", "art. 38 c. 10",
+                               integrazione="Motivazione tecnica del prelievo superiore al 25% per elevata provvigione (art. 38 c. 10)"))
         elif prel > massimo + 1e-9:
             esiti.append(Esito("fus.prelievo", "Intensità del prelievo", Livello.NON_CONFORME,
-                               f"Prelievo {pct(prel)} della massa oltre il massimo del {pct(massimo, 0)} "
-                               f"(provvigione {num_breve(prima, 1)} m³/ha). Superabile solo per elevata fertilità o provvigione per mancate utilizzazioni, da motivare.",
-                               "art. 38 cc. 9-10",
-                               integrazione="Motivazione tecnica del prelievo superiore al limite (art. 38 c. 10) o riduzione dell'intensità del taglio"))
+                               f"Prelievo {pct(prel)} della massa oltre il massimo del {pct(massimo, 0)} ({base}).",
+                               "art. 38 c. 9",
+                               integrazione=f"Riduzione dell'intensità del taglio entro il {pct(massimo, 0)} della massa (art. 38 c. 9)"))
         else:
             esiti.append(Esito("fus.prelievo", "Intensità del prelievo", Livello.OK,
-                               f"Prelievo {pct(prel)} della massa entro il {pct(massimo, 0)} (provvigione prima del taglio "
-                               f"{num_breve(prima, 1)} m³/ha).", "art. 38 c. 9"))
+                               f"Prelievo {pct(prel)} della massa entro il {pct(massimo, 0)} ({base})"
+                               + ("; elevata provvigione: il prelievo potrebbe superare il 25% (c. 10)." if elevata else "."),
+                               "art. 38 cc. 9-10" if elevata else "art. 38 c. 9"))
         if prel >= 0.999:
             esiti.append(Esito("fus.raso", "Taglio raso", Livello.NON_CONFORME,
                                "Nelle fustaie il taglio raso è vietato salvo impianti di specie esotiche o da arboricoltura.", "art. 38 cc. 2-3"))

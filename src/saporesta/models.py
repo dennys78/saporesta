@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -245,6 +246,29 @@ class Martellata(BaseModel):
     sezione: str | None = None
 
 
+TavolaCubatura = Literal["tabacchi_2011", "castellani_1984", "tacal_2016", "emilia_romagna_2002", "trento_sff", "altra"]
+
+
+class ClasseDiametrica(BaseModel):
+    """Una riga del quadro riepilogativo per classi diametriche."""
+
+    d_cm: float
+    h_m: float | None = None
+    n_piante: float | None = None
+    v_unitario_m3: float | None = Field(None, description="volume di una pianta della classe")
+    v_totale_m3: float | None = Field(None, description="volume di tutte le piante della classe")
+
+
+class Cubatura(BaseModel):
+    """Tavola di cubatura usata dal progettista e dati per ricalcolare i volumi."""
+
+    tavola: TavolaCubatura | None = None
+    tavola_dichiarata: str | None = Field(None, description="come è indicata nella relazione/scheda")
+    specie_tavola: str | None = Field(None, description="specie o tavola usata, se diversa dalla specie prevalente")
+    tariffa: int | None = Field(None, description="numero di tariffa TaCAL (1-9)")
+    classi: list[ClasseDiametrica] = Field(default_factory=list)
+
+
 class Riscontro(BaseModel):
     """Lo stesso dato riportato in più documenti dell'istanza.
 
@@ -317,6 +341,7 @@ class Pratica(BaseModel):
     scheda: SchedaA023 | None = None
     tagliate: list[Tagliata] = Field(default_factory=list)
     martellata: Martellata | None = None
+    cubatura: Cubatura | None = None
     versamento: Versamento = Field(default_factory=Versamento)
     riscontri: list[Riscontro] = Field(default_factory=list)
     istruttoria: Istruttoria = Field(default_factory=Istruttoria)

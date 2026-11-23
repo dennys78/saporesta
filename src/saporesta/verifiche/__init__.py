@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from ..models import Pratica
-from . import altri, ceduo, fustaia, generali, scheda
+from . import altri, ceduo, cubatura, fustaia, generali, scheda
 from .esito import Esito, Livello
 
 __all__ = ["Esito", "Livello", "Proposta", "Risultato", "esegui"]
@@ -68,6 +68,7 @@ def esegui(pratica: Pratica) -> Risultato:
         scheda.scheda,
         ceduo.verifica,
         fustaia.verifica,
+        cubatura.verifica,
         *altri.TUTTE,
     ]
     risultato = Risultato()

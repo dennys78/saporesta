@@ -69,11 +69,24 @@ ETICHETTE = {
     "firmatari": "Firmatari", "istruttore": "Funzionario istruttore", "responsabile_procedimento": "Responsabile del procedimento",
     "dirigente": "Dirigente", "qualifica_dirigente": "Qualifica del dirigente", "data_documento": "Data dei documenti",
     "destinatari_conoscenza": "Destinatari per conoscenza (separare gli indirizzi con una riga vuota)",
+    "cubatura": "Tavola di cubatura", "tavola": "Tavola applicata",
+    "tavola_dichiarata": "Come è indicata nell'istanza", "specie_tavola": "Specie della tavola (se diversa)",
+    "tariffa": "Tariffa TaCAL n.", "classi": "Classi diametriche", "d_cm": "Diametro (cm)", "h_m": "Altezza (m)",
+    "v_unitario_m3": "Volume per pianta (m³)", "v_totale_m3": "Volume della classe (m³)",
+}
+
+VALORI_LEGGIBILI = {
+    "tabacchi_2011": "Tabacchi 2011 – INFC (doppia entrata)",
+    "castellani_1984": "Castellani 1984 – ISAFA (doppia entrata)",
+    "tacal_2016": "TaCAL 2016 – tariffe Calabria (una entrata)",
+    "emilia_romagna_2002": "Emilia-Romagna 2002 (Bertani)",
+    "trento_sff": "Provincia di Trento (modelli SFF)",
+    "altra": "Altra tavola / locale",
 }
 
 RIGHE = {"integrazioni_aggiuntive", "prescrizioni_aggiuntive", "note_verbale", "aree_protette", "protocolli_integrazione"}
 BLOCCHI = {"destinatari_conoscenza"}
-TESTI_LUNGHI = {"titolo_progetto", "esito", "manutenzione_viabilita", "riferimento_vinca", "classe_eutr"}
+TESTI_LUNGHI = {"titolo_progetto", "esito", "manutenzione_viabilita", "riferimento_vinca", "classe_eutr", "tavola_dichiarata"}
 
 
 def etichetta(nome: str) -> str:
@@ -157,7 +170,7 @@ class Rendering:
         v = "" if valore is None else str(valore)
         if tipo in ("enum", "literal"):
             opzioni = '<option value=""></option>' + "".join(
-                f'<option value="{escape(s)}"{" selected" if s == v else ""}>{escape(s)}</option>'
+                f'<option value="{escape(s)}"{" selected" if s == v else ""}>{escape(VALORI_LEGGIBILI.get(s, s))}</option>'
                 for s in _scelte(tipo, interno))
             return self._avvolgi(nome, percorso, f'<select name="{n}">{opzioni}</select>')
         if tipo == "bool":

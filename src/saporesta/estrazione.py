@@ -147,6 +147,14 @@ class EScheda(_E):
     piante_morte_rilasciate_ha: float | None
 
 
+class EClasse(_E):
+    d_cm: float
+    h_m: float | None
+    n_piante: float | None
+    v_unitario_m3: float | None
+    v_totale_m3: float | None
+
+
 class Estrazione(_E):
     protocollo: str | None
     data_protocollo: str | None
@@ -196,6 +204,12 @@ class Estrazione(_E):
     scheda: EScheda | None
     tagliate: list[ETagliata]
     martellata: EMartellata | None
+    tavola_cubatura: Literal["tabacchi_2011", "castellani_1984", "tacal_2016", "emilia_romagna_2002", "trento_sff",
+                             "altra"] | None
+    tavola_cubatura_testo: str | None
+    specie_tavola: str | None
+    tariffa_tacal: int | None
+    classi_diametriche: list[EClasse]
     documenti_presenti: list[EDocumento]
     riscontri: list[ERiscontro]
     dubbi: list[EDubbio]
@@ -225,6 +239,17 @@ meteoriche), art22 (tagli per pubblica incolumità, elettrodotti, viabilità, op
 dichiara che l'area è stata percorsa da incendio o è soggetta al vincolo dell'art. 10 L. 353/2000.
 - riferimento_normativo_modulo: la norma che il modulo cita per i tagli (es. "PMPF D.G.R. n. 218 del 20.05.2011" oppure "Reg. n. 4/2024").
 - Scheda A02.3: valori "ad ettaro" in ettaro_*, valori "sull'intera superficie" in totale_*; percentuali in punti (20 = 20%).
+- Tavola di cubatura: cerca nella relazione e nella scheda A02.3 quale tavola o tariffa è stata usata per stimare i \
+volumi e riporta in "tavola_cubatura_testo" la frase com'è scritta. In "tavola_cubatura" indica: "tabacchi_2011" per \
+tavole INFC / Inventario Nazionale 2005 / Tabacchi et al. 2011; "castellani_1984" per tavole ISAFA / IFNI / Castellani \
+et al. 1984 (tavole a doppia entrata dell'Inventario Forestale Nazionale Italiano); "tacal_2016" per TaCAL / ALForLab / \
+tariffe dei volumi della Calabria (Scrinzi et al. 2016), con il numero di tariffa in "tariffa_tacal"; \
+"emilia_romagna_2002" per le tavole dell'Emilia-Romagna (Bertani); "trento_sff" per i modelli della Provincia di Trento; \
+"altra" per tavole locali o costruite dal progettista; null se la tavola non è indicata (e aggiungi un dubbio). \
+"specie_tavola" solo se la tavola usata è di una specie diversa da quella prevalente.
+- classi_diametriche: il quadro riepilogativo delle piante al taglio per classi diametriche (o la curva ipsometrica \
+con i volumi): per ogni classe diametro in cm, altezza in m, numero di piante, volume di una pianta e/o volume della \
+classe, in m³ (se il documento usa dm³ converti in m³ e segnalalo nei dubbi). Se manca, lista vuota.
 - documenti_presenti: per ogni documento della checklist che trovi tra i PDF indica la voce, il nome del file e le pagine. \
 Voci possibili:
 {_elenco_voci()}
@@ -525,6 +550,13 @@ def in_pratica(e: Estrazione) -> dict:
                      for t in e.tagliate if t.superficie_ha is not None],
         "martellata": ({k: v for k, v in e.martellata.model_dump().items() if v is not None}
                        if e.martellata and e.martellata.n_piante else None),
+        "cubatura": ({
+            "tavola": e.tavola_cubatura,
+            "tavola_dichiarata": e.tavola_cubatura_testo,
+            "specie_tavola": e.specie_tavola,
+            "tariffa": e.tariffa_tacal,
+            "classi": [{k: v for k, v in c.model_dump().items() if v is not None} for c in e.classi_diametriche],
+        } if (e.tavola_cubatura or e.tavola_cubatura_testo or e.classi_diametriche) else None),
         "riscontri": [r.model_dump() for r in e.riscontri],
         "istruttoria": {"checklist": checklist},
     }

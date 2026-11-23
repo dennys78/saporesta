@@ -132,10 +132,10 @@ def main(argv: list[str] | None = None) -> int:
 
     cartella = a.uscita / a.pratica.stem
     cartella.mkdir(parents=True, exist_ok=True)
-    (cartella / "rapporto_istruttoria.md").write_text(testo, encoding="utf-8")
+    rapporto_docx = documenti.genera_rapporto(pratica, r, cartella / f"rapporto_istruttoria_{pratica.protocollo or 'bozza'}.docx")
     tipi = list(documenti.MODELLI) if a.tutti else documenti.documenti_per_proposta(r)
     print(f"Esito proposto: {r.proposta.value}")
-    print(f"  {cartella / 'rapporto_istruttoria.md'}")
+    print(f"  {rapporto_docx}")
     for tipo in tipi:
         nome = documenti.MODELLI[tipo].replace(".docx", f"_{pratica.protocollo}.docx")
         print(f"  {documenti.genera(pratica, tipo, cartella / nome, r)}")

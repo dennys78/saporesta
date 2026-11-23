@@ -14,7 +14,7 @@ from docxtpl import DocxTemplate, Listing
 from . import formato as f
 from .checklist import voci_richieste
 from .models import Pratica, Sottotipo, StatoVoce, TipoIntervento
-from .verifiche import Livello, Risultato, esegui
+from .verifiche import Livello, Proposta, Risultato, esegui
 from .verifiche.scheda import indici_prelievo
 from .modelli_word import CARTELLA_MODELLI, assicura_modelli
 
@@ -66,7 +66,7 @@ TIPOLOGIA = {
     T.ART22: ("Tagli per l'eliminazione di rischi per la pubblica incolumità e per l'efficienza e la sicurezza", "art. 29 c. 1 lett. c"),
 }
 
-PREFISSI_TECNICI = ("a023.", "ced.", "fus.", "tra.", "neo.", "inc.", "avv.", "a22.")
+PREFISSI_TECNICI = ("a023.", "ced.", "fus.", "tra.", "neo.", "inc.", "avv.", "a22.", "cub.")
 
 
 # ------------------------------------------------------------------------ testi
@@ -352,7 +352,10 @@ def contesto(p: Pratica, r: Risultato | None = None) -> dict[str, Any]:
         "destinatari_conoscenza": [Listing(d) for d in p.istruttoria.destinatari_conoscenza],
         "oggetto": oggetto(p),
         "tipologia": tipologia(p),
-        "titolo_proposta": "Proposta di autorizzazione con prescrizioni nei soli riguardi forestali e idrogeologici",
+        "autorizzabile": r.proposta is Proposta.AUTORIZZABILE,
+        "titolo_proposta": ("Proposta di autorizzazione con prescrizioni nei soli riguardi forestali e idrogeologici"
+                            if r.proposta is Proposta.AUTORIZZABILE else
+                            "Proposta di sospensione dei termini e richiesta di integrazioni"),
         "visti": VISTI,
         "straordinario": p.intervento.straordinario,
         "previsto_da": p.intervento.previsto_da,
@@ -409,12 +412,93 @@ def genera(p: Pratica, tipo: str, destinazione: Path, r: Risultato | None = None
 
 
 def documenti_per_proposta(r: Risultato) -> list[str]:
-    from .verifiche import Proposta
+    """Il verbale istruttorio esce sempre; poi la richiesta di integrazioni o l'autorizzazione secondo l'esito."""
     if r.proposta is Proposta.INTEGRAZIONI:
-        return ["integrazioni"]
+        return ["verbale", "integrazioni"]
     if r.proposta is Proposta.AUTORIZZABILE:
         return ["verbale", "autorizzazione"]
-    return []
+    return ["verbale"]
 
 
-__all__ = ["contesto", "genera", "documenti_per_proposta", "MODELLI"]
+# ----------------------------------------------------------- rapporto in Word
+
+ORDINE_LIVELLI = [Livello.NON_CONFORME, Livello.DA_VERIFICARE, Livello.ATTENZIONE, Livello.INFO, Livello.OK]
+TITOLI_LIVELLI = {
+    Livello.NON_CONFORME: "Non conformità", Livello.DA_VERIFICARE: "Da verificare", Livello.ATTENZIONE: "Attenzione",
+    Livello.INFO: "Informazioni", Livello.OK: "Controlli superati",
+}
+
+
+def genera_rapporto(p: Pratica, r: Risultato, destinazione: Path) -> Path:
+    """Rapporto dell'analisi istruttoria (uso interno dell'ufficio) in formato Word."""
+    from docx import Document
+    from docx.shared import Pt, RGBColor
+
+    from .verifiche.cubatura import ricalcola
+
+    doc = Document()
+    stile = doc.styles["Normal"]
+    stile.font.name = "Times New Roman"
+    stile.font.size = Pt(11)
+    colori = {Livello.NON_CONFORME: RGBColor(0xA3, 0x3A, 0x2B), Livello.DA_VERIFICARE: RGBColor(0xA0, 0x6B, 0x00),
+              Livello.ATTENZIONE: RGBColor(0xA0, 0x6B, 0x00), Livello.INFO: RGBColor(0x2D, 0x5F, 0x87),
+              Livello.OK: RGBColor(0x2F, 0x6B, 0x45)}
+
+    doc.add_heading(f"Rapporto istruttorio – Prot. {p.protocollo or 'n.d.'}", level=1)
+    i = p.inquadramento
+    doc.add_paragraph(f"{p.richiedente.nome_completo} – Comune di {i.comune} ({i.provincia}), località {i.localita} – "
+                      f"{particelle(p)} – superficie d'intervento ha {f.ha_catastale(i.superficie_intervento_ha)}")
+    doc.add_paragraph(tipologia(p))
+    esito = doc.add_paragraph()
+    esito.add_run("Esito proposto: ").bold = True
+    esito.add_run(r.proposta.value.upper()).bold = True
+
+    # tavola di cubatura
+    doc.add_heading("Tavola di cubatura", level=2)
+    for e in r.esiti:
+        if e.codice.startswith("cub."):
+            par = doc.add_paragraph(style="List Bullet")
+            run = par.add_run(f"{e.titolo}: ")
+            run.bold = True
+            run.font.color.rgb = colori[e.livello]
+            par.add_run(e.messaggio)
+    rc = ricalcola(p)
+    if rc and rc.righe:
+        tacal = rc.tavola == "tacal_2016"
+        intest = ["d (cm)", "h dichiarata (m)"] + (["h tariffa (m)"] if tacal else []) + \
+                 ["n. piante", "v dichiarato (m³/pianta)", "v tavola (m³/pianta)", "scarto"]
+        t = doc.add_table(rows=1, cols=len(intest))
+        t.style = "Table Grid"
+        for cella, testo in zip(t.rows[0].cells, intest):
+            cella.text = testo
+            cella.paragraphs[0].runs[0].bold = True
+        for rg in rc.righe:
+            valori = [f.num_breve(rg.d), f.num_breve(rg.h, 1)] + ([f.num_breve(rg.h_tavola, 1)] if tacal else []) + [
+                f.num_breve(rg.n, 0), f.num(rg.v_dichiarato, 3), f.num(rg.v_tavola, 3),
+                (f"{'+' if rg.scarto > 0 else ''}{f.num_breve(rg.scarto * 100, 1)}%" if rg.scarto is not None else "—")]
+            for cella, testo in zip(t.add_row().cells, valori):
+                cella.text = testo
+
+    # tutti i controlli per livello
+    for livello in ORDINE_LIVELLI:
+        esiti = [e for e in r.per_livello(livello) if not e.codice.startswith("cub.")]
+        if not esiti:
+            continue
+        doc.add_heading(f"{TITOLI_LIVELLI[livello]} ({len(esiti)})", level=2)
+        for e in esiti:
+            par = doc.add_paragraph(style="List Bullet")
+            run = par.add_run(f"{e.titolo}: ")
+            run.bold = True
+            run.font.color.rgb = colori[livello]
+            par.add_run(e.messaggio + (f" ({e.articolo})" if e.articolo else ""))
+    if r.integrazioni:
+        doc.add_heading("Integrazioni da chiedere all'istante", level=2)
+        for x in r.integrazioni:
+            doc.add_paragraph(x, style="List Number")
+    if r.prescrizioni:
+        doc.add_heading("Prescrizioni specifiche proposte", level=2)
+        for x in r.prescrizioni:
+            doc.add_paragraph(x, style="List Bullet")
+    destinazione.parent.mkdir(parents=True, exist_ok=True)
+    doc.save(str(destinazione))
+    return destinazione
