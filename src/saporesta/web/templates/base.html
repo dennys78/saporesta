@@ -2,8 +2,14 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block titolo %}Istruttoria A02{% endblock %}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f6b45">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Saporesta">
+<meta name="format-detection" content="telephone=no">
+<title>{% block titolo %}{{ NOME }} – {{ SOTTOTITOLO }}{% endblock %}</title>
+<link rel="icon" type="image/svg+xml" href="{{ favicon() }}">
 <style>
 :root {
   --sfondo: #f6f5f1; --carta: #ffffff; --testo: #1f2a24; --tenue: #5d6b63; --bordo: #d9ddd6;
@@ -22,7 +28,14 @@ body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-ser
 a { color: var(--verde); }
 header.barra { display: flex; align-items: center; gap: 16px; padding: 10px 20px; background: var(--carta); border-bottom: 1px solid var(--bordo); position: sticky; top: 0; z-index: 5; }
 header.barra h1 { font-size: 17px; margin: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-header.barra a.casa { text-decoration: none; font-weight: 600; }
+header.barra a.casa { text-decoration: none; display: flex; align-items: center; gap: 9px; color: var(--testo); flex-shrink: 0; }
+svg.logo { display: block; width: 100%; height: 100%; }
+header.barra a.casa svg.logo { width: 34px; height: 34px; flex-shrink: 0; }
+header.barra .marchio { display: flex; flex-direction: column; line-height: 1.15; }
+header.barra .marchio strong { font-size: 16px; color: var(--verde); }
+header.barra .marchio small { font-size: 11.5px; color: var(--tenue); }
+header.barra h1 { border-left: 1px solid var(--bordo); padding-left: 16px; }
+@media (max-width: 760px) { header.barra .marchio small { display: none; } }
 main { padding: 20px; }
 button, .bottone { font: inherit; padding: 7px 14px; border-radius: 6px; border: 1px solid var(--verde); background: var(--verde); color: #fff; cursor: pointer; text-decoration: none; display: inline-block; }
 button.secondario, .bottone.secondario { background: transparent; color: var(--verde); }
@@ -33,17 +46,43 @@ button.pericolo { background: transparent; color: var(--rosso); border-color: va
 input, select, textarea { font: inherit; width: 100%; padding: 5px 7px; border: 1px solid var(--bordo); border-radius: 5px; background: var(--carta); color: var(--testo); }
 textarea { resize: vertical; }
 .carta { background: var(--carta); border: 1px solid var(--bordo); border-radius: 8px; padding: 16px; }
+.solo-mobile { display: none; }
+
+/* ---------------------------------------------------------------- telefono e tablet piccoli */
+@media (max-width: 760px) {
+  header.barra { flex-wrap: wrap; gap: 6px 12px; padding: 8px 12px; padding-top: max(8px, env(safe-area-inset-top)); }
+  header.barra a.casa svg.logo { width: 30px; height: 30px; }
+  header.barra .marchio small, .nome-utente { display: none; }
+  header.barra h1 { order: 10; flex-basis: 100%; border-left: 0; padding-left: 0; font-size: 15px; }
+  header.barra .nav-destra { margin-left: auto; }
+  main { padding: 12px; padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  .carta { padding: 14px; }
+  /* sotto i 16px Safari su iPhone ingrandisce la pagina a ogni campo toccato */
+  input, select, textarea { font-size: 16px; padding: 8px 9px; }
+  button, .bottone { padding: 9px 14px; }
+  .solo-mobile { display: initial; }
+  .solo-desktop { display: none !important; }
+}
+/* telefono in orizzontale: poca altezza, la barra non resta fissa */
+@media (max-height: 500px) and (orientation: landscape) {
+  header.barra { position: static; padding-top: 6px; padding-bottom: 6px; }
+  header.barra h1 { order: 0; flex-basis: auto; font-size: 15px; }
+  header.barra .marchio small { display: none; }
+}
 </style>
 {% block stile %}{% endblock %}
 </head>
 <body>
 <header class="barra">
-  <a class="casa" href="/">Istruttoria A02</a>
+  <a class="casa" href="/" title="{{ NOME }} – {{ SOTTOTITOLO }}">{{ logo_svg() }}<span class="marchio"><strong>{{ NOME }}</strong><small>{{ SOTTOTITOLO }}</small></span></a>
   <h1>{% block intestazione %}{% endblock %}</h1>
   {% block azioni %}{% endblock %}
   {% block navigazione %}
-  <a href="/impostazioni" title="Chiavi AI">Impostazioni</a>
+  <span class="nav-destra" style="display:flex;align-items:center;gap:14px">
+  <a href="/impostazioni" title="Chiavi AI, utenti e carta intestata">Impostazioni</a>
+  {% if accesso_attivo() and request.state.utente %}<span class="nome-utente" title="Utente collegato" style="opacity:.8">{{ request.state.utente }}</span>{% endif %}
   {% if accesso_attivo() %}<form method="post" action="/esci" style="margin:0"><button type="submit" class="secondario">Esci</button></form>{% endif %}
+  </span>
   {% endblock %}
 </header>
 {% block corpo %}{% endblock %}

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block titolo %}Impostazioni{% endblock %}
-{% block intestazione %}Impostazioni – chiavi AI{% endblock %}
+{% block titolo %}Impostazioni – {{ NOME }}{% endblock %}
+{% block intestazione %}Impostazioni{% endblock %}
 {% block stile %}
 <style>
 main { max-width: 960px; margin: 0 auto; display: grid; gap: 18px; }
@@ -19,12 +19,84 @@ main { max-width: 960px; margin: 0 auto; display: grid; gap: 18px; }
 .riga .cresce { flex: 1; min-width: 220px; }
 code { font-size: 13px; }
 form.in-linea { display: inline; }
+.loghi { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+.scelta-logo { display: grid; justify-items: center; gap: 6px; padding: 12px 8px; border: 1px solid var(--bordo); border-radius: 10px; cursor: pointer; text-align: center; }
+.scelta-logo:hover { border-color: var(--verde); }
+.scelta-logo.attuale { border-color: var(--verde); box-shadow: 0 0 0 2px var(--verde); background: var(--verde-chiaro); }
+.scelta-logo input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.scelta-logo .anteprima { width: 64px; height: 64px; display: block; }
+.nome-logo { font-size: 13px; }
+@media (max-width: 760px) {
+  table.utenti thead { display: none; }
+  table.utenti, table.utenti tbody, table.utenti tr, table.utenti td { display: block; width: 100%; }
+  table.utenti tr { padding: 8px 0; }
+  table.utenti td { padding: 4px 0 !important; text-align: left !important; }
+  table.utenti .riga input { max-width: none !important; flex: 1; min-width: 120px; }
+  .loghi { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .scelta-logo .anteprima { width: 52px; height: 52px; }
+}
 </style>
 {% endblock %}
 {% block corpo %}
 <main>
   {% if messaggio %}<div class="avviso">{{ messaggio }}</div>{% endif %}
   {% if errore %}<div class="avviso errore">{{ errore }}</div>{% endif %}
+
+  {% if utente and utente != utente_emergenza %}
+  <section class="carta">
+    <h2 style="margin-top:0">La tua password</h2>
+    <p class="piccolo">Sei collegato come <strong>{{ utente }}</strong>.</p>
+    <form class="riga" method="post" action="/impostazioni/mia-password" autocomplete="off">
+      <label class="cresce">Password attuale<input type="password" name="attuale" required autocomplete="current-password"></label>
+      <label class="cresce">Nuova password<input type="password" name="password" required minlength="{{ lunghezza_minima }}" autocomplete="new-password"></label>
+      <label class="cresce">Ripeti nuova password<input type="password" name="conferma" required minlength="{{ lunghezza_minima }}" autocomplete="new-password"></label>
+      <button type="submit">Cambia password</button>
+    </form>
+  </section>
+  {% endif %}
+
+  {% if admin %}
+  <section class="carta">
+    <h2 style="margin-top:0">Utenti</h2>
+    <p class="piccolo">Ogni persona entra nel portale con il proprio nome utente e la propria password. Gli
+    <strong>amministratori</strong> gestiscono anche utenti, chiavi AI e carta intestata; gli altri utenti lavorano sulle
+    pratiche e possono cambiare solo la propria password.
+    {% if emergenza %}Resta sempre valido l'accesso di emergenza con utente <code>{{ utente_emergenza }}</code> e la password
+    del file <code>.env</code> sul server.{% else %}Creato il primo utente, il portale chiederà l'accesso.{% endif %}</p>
+    {% if utenti %}
+    <table class="utenti" style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="text-align:left">Utente</th><th style="text-align:left">Ruolo</th><th style="text-align:left">Nuova password</th><th></th></tr></thead>
+      <tbody>
+      {% for u in utenti %}
+      <tr style="border-top:1px solid var(--bordo, #ddd)">
+        <td style="padding:8px 4px"><strong>{{ u.nome }}</strong>{% if u.nome == utente %} <span class="piccolo">(tu)</span>{% endif %}</td>
+        <td style="padding:8px 4px">
+          <form class="in-linea" method="post" action="/impostazioni/utenti/{{ u.nome }}/ruolo">
+            <label class="spunta" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" name="amministratore" value="1" style="width:auto" {{ 'checked' if u.amministratore }} onchange="this.form.submit()"> amministratore</label>
+          </form></td>
+        <td style="padding:8px 4px">
+          <form class="riga" method="post" action="/impostazioni/utenti/{{ u.nome }}/password" autocomplete="off">
+            <input type="password" name="password" placeholder="nuova password" required minlength="{{ lunghezza_minima }}" autocomplete="new-password" style="max-width:170px">
+            <input type="password" name="conferma" placeholder="ripeti" required minlength="{{ lunghezza_minima }}" autocomplete="new-password" style="max-width:170px">
+            <button type="submit" class="secondario">Imposta</button>
+          </form></td>
+        <td style="padding:8px 4px;text-align:right">{% if u.nome != utente %}
+          <form class="in-linea" method="post" action="/impostazioni/utenti/{{ u.nome }}/elimina" onsubmit="return confirm('Eliminare l\'utente «{{ u.nome }}»?')"><button type="submit" class="pericolo">Elimina</button></form>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="piccolo">Nessun utente creato.</p>{% endif %}
+    <h3 style="margin:16px 0 8px;font-size:15px">Aggiungi un utente</h3>
+    <form class="riga" method="post" action="/impostazioni/utenti/aggiungi" autocomplete="off">
+      <label class="cresce">Nome utente<input type="text" name="nome" required pattern="[a-zA-Z0-9][a-zA-Z0-9._\-]{1,31}" placeholder="es. mario.rossi" autocapitalize="none" spellcheck="false"></label>
+      <label class="cresce">Password<input type="password" name="password" required minlength="{{ lunghezza_minima }}" autocomplete="new-password"></label>
+      <label class="cresce">Ripeti password<input type="password" name="conferma" required minlength="{{ lunghezza_minima }}" autocomplete="new-password"></label>
+      <label class="spunta"><input type="checkbox" name="amministratore" value="1"> amministratore</label>
+      <button type="submit">Crea utente</button>
+    </form>
+    <p class="piccolo">Password di almeno {{ lunghezza_minima }} caratteri. Sono salvate solo come impronta cifrata, mai in chiaro.</p>
+  </section>
 
   <section class="carta">
     <h2 style="margin-top:0">Come funziona</h2>
@@ -66,9 +138,25 @@ form.in-linea { display: inline; }
       <form class="in-linea" method="post" action="/impostazioni/{{ c.id }}/verifica"><button type="submit" class="secondario">Verifica e mostra i modelli</button></form>
       <form class="in-linea" method="post" action="/impostazioni/{{ c.id }}/elimina" onsubmit="return confirm('Eliminare la chiave «{{ c.etichetta }}»?')"><button type="submit" class="pericolo">Elimina</button></form>
     </div>
+    {% if c.fornitore == 'gemini' and c.modello and not modello_adatto(c.modello) %}<p class="avviso errore" style="margin:0">Il modello «{{ c.modello }}» non legge documenti: premere «Verifica e mostra i modelli» e scegliere un modello «flash».</p>{% endif %}
     {% if c.fornitore == 'gemini' and not c.modello %}<p class="avviso errore" style="margin:0">Scegliere il modello Gemini: senza modello l'estrazione non parte.</p>{% endif %}
   </section>
   {% endfor %}
+
+  <section class="carta">
+    <h2 style="margin-top:0">Logo del portale</h2>
+    <p class="piccolo">Il logo scelto compare nella barra in alto, nella pagina di accesso e come icona della scheda del browser.</p>
+    <form method="post" action="/impostazioni/logo" class="loghi">
+      {% for codice, nome in loghi.items() %}
+      <label class="scelta-logo {{ 'attuale' if codice == logo_attuale }}">
+        <input type="radio" name="logo" value="{{ codice }}" {{ 'checked' if codice == logo_attuale }} onchange="this.form.submit()">
+        <span class="anteprima">{{ logo_svg(codice) }}</span>
+        <span class="nome-logo">{{ nome }}</span>
+      </label>
+      {% endfor %}
+      <noscript><button type="submit">Usa il logo scelto</button></noscript>
+    </form>
+  </section>
 
   <section class="carta">
     <h2 style="margin-top:0">Carta intestata dei documenti</h2>
@@ -96,5 +184,6 @@ form.in-linea { display: inline; }
     </form>
     <p class="piccolo">Le chiavi Gemini si creano su Google AI Studio; quelle Claude nella Console Anthropic.</p>
   </section>
+  {% endif %}
 </main>
 {% endblock %}

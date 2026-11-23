@@ -184,9 +184,9 @@ def test_password_obbligatoria_se_impostata(client, monkeypatch):
     r = client.get("/impostazioni", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].startswith("/accesso")
     assert client.post("/impostazioni/aggiungi", data={"fornitore": "gemini", "valore": "x"}).status_code == 401
-    r = client.post("/accesso", data={"password": "sbagliata", "dopo": "/"})
-    assert "Password errata" in r.text
-    r = client.post("/accesso", data={"password": "parola-di-prova", "dopo": "/impostazioni"})
+    r = client.post("/accesso", data={"utente": "admin", "password": "sbagliata", "dopo": "/"})
+    assert "Utente o password errati" in r.text
+    r = client.post("/accesso", data={"utente": "admin", "password": "parola-di-prova", "dopo": "/impostazioni"})
     assert r.status_code == 200 and "Aggiungi una chiave" in r.text and "Esci" in r.text
     client.post("/esci")
     assert client.get("/", follow_redirects=False).status_code == 303
@@ -194,12 +194,13 @@ def test_password_obbligatoria_se_impostata(client, monkeypatch):
 
 def test_accesso_non_reindirizza_fuori(client, monkeypatch):
     monkeypatch.setenv("SAPORESTA_PASSWORD", "p")
-    r = client.post("/accesso", data={"password": "p", "dopo": "//sito-esterno.example"}, follow_redirects=False)
+    r = client.post("/accesso", data={"utente": "admin", "password": "p", "dopo": "//sito-esterno.example"}, follow_redirects=False)
     assert r.headers["location"] == "/"
 
 
-def test_cookie_manomesso_rifiutato():
+def test_cookie_manomesso_rifiutato(monkeypatch):
     from saporesta.web import accesso
+    monkeypatch.setenv("SAPORESTA_PASSWORD", "parola-di-prova")
     c = accesso.crea_cookie()
     assert accesso.cookie_valido(c)
     assert not accesso.cookie_valido(c[:-1] + ("0" if c[-1] != "0" else "1"))
@@ -225,3 +226,141 @@ def test_carta_intestata_caricata(client, tmp_path, monkeypatch):
     assert not (tmp_path / "modelli" / "carta_intestata_caricata.docx").exists()
     r = client.post("/impostazioni/carta-intestata", files={"documento": ("x.docx", b"non zip", "application/octet-stream")})
     assert "non è un documento Word" in r.text
+
+
+# ------------------------------------------------------- PDF grandi, modelli e quote
+
+class GeminiConFile(GeminiFinto):
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.caricati, self.cancellati = [], []
+        self.files = types.SimpleNamespace(upload=self._carica, get=lambda name: self._file(name, "ACTIVE"),
+                                           delete=lambda name: self.cancellati.append(name))
+
+    def _file(self, nome, stato):
+        return types.SimpleNamespace(name=nome, state=types.SimpleNamespace(name=stato))
+
+    def _carica(self, file, config):
+        self.caricati.append(config["display_name"])
+        return self._file(f"files/{len(self.caricati)}", "PROCESSING")
+
+
+def test_pdf_grandi_con_files_api(tmp_path, monkeypatch):
+    monkeypatch.setattr(estrazione, "MAX_INLINE_GEMINI", 10)
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    pdf = tmp_path / "grande.pdf"
+    pdf.write_bytes(PDF_PROVA.read_bytes())
+    finto = GeminiConFile(testo=estrazione_esempio().model_dump_json())
+    assert estrazione.estrai([pdf], client=finto, chiave=_chiave_gemini()).protocollo == "100001"
+    assert finto.caricati == ["grande.pdf"] and finto.cancellati == ["files/1"]
+    assert not any(getattr(c, "inline_data", None) for c in finto.chiamate[0]["contents"])
+
+
+def test_pdf_oltre_50_mb_rifiutato(tmp_path, monkeypatch):
+    monkeypatch.setattr(estrazione, "MAX_FILE_GEMINI", 10)
+    pdf = tmp_path / "enorme.pdf"
+    pdf.write_bytes(PDF_PROVA.read_bytes())
+    with pytest.raises(ErroreEstrazione, match="50 MB"):
+        estrazione.estrai([pdf], client=GeminiConFile(), chiave=_chiave_gemini())
+
+
+def test_modelli_gemini_adatti_e_consigliato():
+    nomi = ["gemini-2.5-flash-image", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash",
+            "gemini-2.5-flash-preview-tts", "gemini-embedding-001", "gemini-3-flash"]
+    assert not estrazione.modello_gemini_adatto("gemini-2.5-flash-image")
+    assert estrazione.modello_gemini_consigliato(nomi) == "gemini-3-flash"
+    finto = GeminiFinto(modelli=[(n, ["generateContent"]) for n in nomi])
+    assert "gemini-2.5-flash-image" not in estrazione.modelli_disponibili(_chiave_gemini(), client=finto)
+
+
+def test_modello_immagini_rifiutato_con_spiegazione(tmp_path):
+    pdf = tmp_path / "i.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    with pytest.raises(ErroreEstrazione, match="non legge documenti"):
+        estrazione.estrai([pdf], client=GeminiFinto(), chiave=_chiave_gemini("gemini-2.5-flash-image"))
+
+
+@pytest.mark.parametrize("messaggio,quota,atteso", [
+    ("Quota exceeded ... limit: 0", "GenerateContentRequestsPerDayPerProjectPerModel-FreeTier", "quota zero"),
+    ("Quota exceeded", "GenerateRequestsPerDayPerProjectPerModel-FreeTier", "giornaliera"),
+    ("Quota exceeded", "GenerateContentInputTokensPerModelPerMinute-FreeTier", "token al minuto"),
+])
+def test_messaggi_quota_gemini(messaggio, quota, atteso):
+    from google.genai import errors
+    risposta = {"error": {"code": 429, "message": messaggio, "status": "RESOURCE_EXHAUSTED", "details": [
+        {"@type": "type.googleapis.com/google.rpc.QuotaFailure", "violations": [{"quotaId": quota}]},
+        {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "30s"}]}}
+    e = errors.ClientError(429, risposta)
+    assert atteso in str(estrazione._errore_gemini(e))
+
+
+def test_verifica_sostituisce_modello_non_adatto(client):
+    c = impostazioni.aggiungi("gemini", "Ufficio", CHIAVE_FINTA, modello="gemini-2.5-flash-image")
+    from saporesta.web import app as modulo_app
+    modulo_app.VERIFICATORE["funzione"] = lambda chiave: ["gemini-2.5-flash", "gemini-2.5-flash-image"]
+    r = client.post(f"/impostazioni/{c.id}/verifica")
+    assert "impostato gemini-2.5-flash" in r.text
+    assert impostazioni.trova(c.id).modello == "gemini-2.5-flash"
+
+
+# ----------------------------------------------------------- Gemini sovraccarico
+
+class GeminiSovraccarico(GeminiFinto):
+    """Risponde 503 per i primi `errori` tentativi sul modello scelto (sempre, se errori=None)."""
+
+    def __init__(self, errori, **kw):
+        super().__init__(**kw)
+        self._errori = errori
+
+    def _genera(self, **kw):
+        from google.genai import errors
+        self.chiamate.append(kw)
+        precedenti = sum(1 for c in self.chiamate if c["model"] == kw["model"]) - 1
+        if kw["model"] == "gemini-modello-prova" and (self._errori is None or precedenti < self._errori):
+            raise errors.ServerError(503, {"error": {"code": 503, "message": "The model is overloaded.",
+                                                     "status": "UNAVAILABLE"}})
+        self.chiamate.pop()
+        return super()._genera(**kw)
+
+
+@pytest.fixture
+def senza_attese(monkeypatch):
+    monkeypatch.setattr("time.sleep", lambda s: None)
+
+
+def test_503_si_riprova(tmp_path, senza_attese):
+    pdf = tmp_path / "i.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    finto = GeminiSovraccarico(2, testo=estrazione_esempio().model_dump_json())
+    assert estrazione.estrai([pdf], client=finto, chiave=_chiave_gemini()).protocollo == "100001"
+    assert [c["model"] for c in finto.chiamate] == ["gemini-modello-prova"] * 3
+
+
+def test_503_persistente_passa_al_modello_di_riserva(tmp_path, senza_attese):
+    pdf = tmp_path / "i.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    finto = GeminiSovraccarico(None, testo=estrazione_esempio().model_dump_json(),
+                               modelli=[("gemini-modello-prova", ["generateContent"]),
+                                        ("gemini-2.5-flash", ["generateContent"]),
+                                        ("gemini-2.5-flash-image", ["generateContent"])])
+    assert estrazione.estrai([pdf], client=finto, chiave=_chiave_gemini()).protocollo == "100001"
+    assert finto.chiamate[-1]["model"] == "gemini-2.5-flash"
+
+
+def test_503_senza_riserva_messaggio_chiaro(tmp_path, senza_attese):
+    pdf = tmp_path / "i.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    with pytest.raises(ErroreEstrazione, match="non risponde.*Risposta di Google: «The model is overloaded.»"):
+        estrazione.estrai([pdf], client=GeminiSovraccarico(None), chiave=_chiave_gemini())
+
+
+def test_scelta_del_logo(client):
+    r = client.get("/impostazioni")
+    assert r.text.count('class="scelta-logo') == 10
+    r = client.post("/impostazioni/logo", data={"logo": "08"})
+    assert "Stemma forestale" in r.text and impostazioni.carica().logo == "08"
+    assert "Logo non valido" in client.post("/impostazioni/logo", data={"logo": "../x"}).text
+    assert impostazioni.carica().logo == "08"
+    from saporesta.web.app import favicon, _svg_logo
+    assert favicon().startswith("data:image/svg+xml,") and "%3Csvg" in favicon()
+    assert _svg_logo("08")[:4] == "<svg"

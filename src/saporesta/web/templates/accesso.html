@@ -1,14 +1,21 @@
 {% extends "base.html" %}
-{% block titolo %}Accesso{% endblock %}
+{% block titolo %}Accesso – {{ NOME }}{% endblock %}
 {% block intestazione %}Accesso{% endblock %}
 {% block navigazione %}{% endblock %}
 {% block corpo %}
 <main style="max-width:380px;margin:40px auto">
   <form class="carta" method="post" action="/accesso" style="display:grid;gap:12px">
-    <h2 style="margin:0">Istruttoria A02</h2>
+    <div style="text-align:center;display:grid;justify-items:center;gap:6px;margin-bottom:6px">
+      <span style="width:72px;height:72px;display:block">{{ logo_svg() }}</span>
+      <h2 style="margin:0;color:var(--verde)">{{ NOME }}</h2>
+      <div style="color:var(--tenue);font-size:14px">{{ SOTTOTITOLO | capitalize }}</div>
+    </div>
     {% if errore %}<div class="avviso errore" style="margin:0">{{ errore }}</div>{% endif %}
+    <label style="display:grid;gap:4px">Utente
+      <input type="text" name="utente" value="{{ utente }}" autofocus required autocomplete="username"
+             autocapitalize="none" spellcheck="false"></label>
     <label style="display:grid;gap:4px">Password
-      <input type="password" name="password" autofocus required autocomplete="current-password"></label>
+      <input type="password" name="password" required autocomplete="current-password"></label>
     <input type="hidden" name="dopo" value="{{ dopo }}">
     <button type="submit">Entra</button>
   </form>

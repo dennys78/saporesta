@@ -22,7 +22,7 @@ from .impostazioni import Chiave
 from .models import Pratica
 
 MODELLO = "claude-opus-5-5"
-MAX_PDF_BYTES = 30 * 1024 * 1024  # limite della richiesta: 32 MB in tutto
+MAX_PDF_BYTES = 23 * 1024 * 1024  # limite della richiesta: 32 MB in tutto, e il base64 pesa 4/3 del PDF
 
 # --------------------------------------------------------------- schema di uscita
 # Schema dedicato all'estrazione: tutti i campi obbligatori, "None" se il dato non
@@ -300,9 +300,26 @@ def estrai(percorsi: list[Path], client=None, chiave: Chiave | None = None) -> E
         chiave = impostazioni.chiave_attiva()
         if chiave is None:
             raise ErroreEstrazione("Nessuna chiave API impostata: aggiungerne una nella pagina Impostazioni.")
-    if chiave is not None and chiave.fornitore == "gemini":
-        return estrai_gemini(percorsi, chiave, client)
-    return estrai_claude(percorsi, chiave, client)
+    import logging
+    import tempfile
+    import time
+
+    from . import riduzione
+    log = logging.getLogger("saporesta")
+    inizio = time.monotonic()
+    # le scansioni pesanti si inviano in copia ridotta; gli originali restano nella pratica
+    with tempfile.TemporaryDirectory(prefix="saporesta-") as cartella:
+        da_inviare = riduzione.riduci_tutti(percorsi, Path(cartella))
+        try:
+            if chiave is not None and chiave.fornitore == "gemini":
+                risultato = estrai_gemini(da_inviare, chiave, client)
+            else:
+                risultato = estrai_claude(da_inviare, chiave, client)
+        except ErroreEstrazione as e:
+            log.warning("Estrazione non riuscita dopo %.0f s: %s", time.monotonic() - inizio, e)
+            raise
+    log.info("Estrazione completata in %.0f s", time.monotonic() - inizio)
+    return risultato
 
 
 # ------------------------------------------------------------------- Claude
@@ -345,7 +362,30 @@ def estrai_claude(percorsi: list[Path], chiave: Chiave | None = None,
 
 # ------------------------------------------------------------------- Gemini
 
-MAX_PDF_BYTES_GEMINI = 19 * 1024 * 1024  # dati inline: 20 MB per richiesta
+MAX_INLINE_GEMINI = 14 * 1024 * 1024  # oltre, i PDF si caricano con la Files API (inline: 20 MB per richiesta)
+MAX_FILE_GEMINI = 50 * 1024 * 1024  # Files API: un PDF al massimo 50 MB (e 1000 pagine)
+MAX_PDF_BYTES_GEMINI = 100 * 1024 * 1024  # totale della pratica
+
+# modelli Gemini che non leggono documenti per restituire testo (immagini, voce, embedding, ...)
+ESCLUSI_GEMINI = ("image", "tts", "audio", "live", "embedding", "aqa", "computer-use", "robotics", "veo", "imagen")
+
+
+def modello_gemini_adatto(nome: str | None) -> bool:
+    return bool(nome) and nome.startswith("gemini") and not any(x in nome for x in ESCLUSI_GEMINI)
+
+
+def modello_gemini_consigliato(nomi: list[str]) -> str | None:
+    """Il "flash" stabile più recente (veloce, economico e con la quota gratuita più ampia), altrimenti il primo adatto."""
+    import re
+    adatti = [n for n in nomi if modello_gemini_adatto(n)]
+    stabili = []
+    for n in adatti:
+        m = re.fullmatch(r"gemini-(\d+(?:\.\d+)?)-flash", n)
+        if m:
+            stabili.append((float(m.group(1)), n))
+    if stabili:
+        return max(stabili)[1]
+    return next((n for n in adatti if "flash" in n), adatti[0] if adatti else None)
 
 MOTIVI_BLOCCO_GEMINI = {
     "MAX_TOKENS": "Risposta troncata: i documenti sono troppo lunghi per un'unica estrazione.",
@@ -365,13 +405,47 @@ def _errore_gemini(e: Exception) -> ErroreEstrazione:
         if e.code in (401, 403) or "API_KEY" in testo or "API key" in testo:
             return ErroreEstrazione("Chiave Gemini non valida o senza permessi.")
         if e.code == 429:
-            return ErroreEstrazione("Limite di richieste o quota Gemini esaurita: riprovare più tardi o usare un'altra chiave.")
+            return _errore_quota_gemini(e, testo)
         if e.code == 404:
             return ErroreEstrazione("Modello Gemini non trovato: sceglierne un altro nelle Impostazioni.")
         return ErroreEstrazione(f"Richiesta rifiutata da Gemini ({e.code}): {testo}")
     if isinstance(e, errors.ServerError):
-        return ErroreEstrazione(f"Errore del servizio Gemini ({e.code}): riprovare più tardi.")
+        return ErroreEstrazione(f"Errore del servizio Gemini ({e.code}): riprovare più tardi.{_messaggio_google(e)}")
     return ErroreEstrazione(f"Impossibile raggiungere Gemini: {e.__class__.__name__}.")
+
+
+def _messaggio_google(e: Exception) -> str:
+    """Il testo dell'errore restituito da Google, per capire il motivo reale."""
+    testo = str(getattr(e, "message", "") or "").strip()
+    return f" Risposta di Google: «{testo[:300]}»" if testo else ""
+
+
+def _errore_quota_gemini(e: Exception, testo: str) -> ErroreEstrazione:
+    """Spiega quale quota Gemini è finita, leggendo i dettagli dell'errore 429."""
+    dettagli = getattr(e, "details", None) or {}
+    voci = (dettagli.get("error", dettagli) if isinstance(dettagli, dict) else {}).get("details", []) or []
+    quote, attesa = [], ""
+    for v in voci:
+        if not isinstance(v, dict):
+            continue
+        for violazione in v.get("violations", []) or []:
+            quote.append(str(violazione.get("quotaId", "")))
+        if v.get("retryDelay"):
+            attesa = str(v["retryDelay"])
+    quote_testo = " ".join(quote)
+    if "limit: 0" in testo:
+        return ErroreEstrazione("Il modello Gemini scelto non è utilizzabile con questa chiave (quota zero, tipico delle "
+                                "chiavi gratuite): scegliere un modello «flash» nelle Impostazioni o attivare la fatturazione.")
+    if "PerDay" in quote_testo:
+        return ErroreEstrazione("Quota giornaliera Gemini esaurita per questa chiave: riprovare domani, usare un'altra chiave "
+                                "o attivare la fatturazione sul progetto Google.")
+    if "Token" in quote_testo:
+        return ErroreEstrazione("I PDF superano i token al minuto consentiti dalla chiave Gemini"
+                                f"{' gratuita' if 'FreeTier' in quote_testo else ''}: caricare meno pagine (solo istanza, "
+                                "A02.3, A02.4 e relazione), riprovare tra un minuto o attivare la fatturazione.")
+    return ErroreEstrazione("Limite di richieste Gemini raggiunto"
+                            f"{' (riprovare tra ' + attesa + ')' if attesa else ': riprovare tra qualche minuto'}"
+                            " oppure usare un'altra chiave.")
 
 
 def client_gemini(chiave: Chiave):
@@ -383,16 +457,117 @@ def estrai_gemini(percorsi: list[Path], chiave: Chiave, client=None) -> Estrazio
     from google.genai import types
     if not chiave.modello:
         raise ErroreEstrazione("Nessun modello Gemini scelto per questa chiave: usare «Verifica» nelle Impostazioni.")
+    if not modello_gemini_adatto(chiave.modello):
+        raise ErroreEstrazione(f"Il modello «{chiave.modello}» non legge documenti (genera immagini, audio o altro): "
+                               "scegliere un modello «flash» o «pro» nelle Impostazioni.")
     _controlla_dimensione(percorsi, MAX_PDF_BYTES_GEMINI)
+    troppo_grandi = [p.name for p in percorsi if p.stat().st_size > MAX_FILE_GEMINI]
+    if troppo_grandi:
+        raise ErroreEstrazione(f"{', '.join(troppo_grandi)}: oltre 50 MB, il limite di Gemini per un singolo PDF. "
+                               "Dividerlo o lasciare fuori le tavole cartografiche.")
     client = client or client_gemini(chiave)
-    contenuti: list = []
-    for p in percorsi:
-        contenuti.append(f"File: {p.name}")
-        contenuti.append(types.Part.from_bytes(data=p.read_bytes(), mime_type="application/pdf"))
-    contenuti.append(ISTRUZIONE)
+    usa_files_api = sum(p.stat().st_size for p in percorsi) > MAX_INLINE_GEMINI
+    caricati: list = []
+    try:
+        contenuti: list = []
+        for p in percorsi:
+            contenuti.append(f"File: {p.name}")
+            if usa_files_api:
+                f = _carica_file_gemini(client, p)
+                caricati.append(f)
+                contenuti.append(f)
+            else:
+                contenuti.append(types.Part.from_bytes(data=p.read_bytes(), mime_type="application/pdf"))
+        contenuti.append(ISTRUZIONE)
+        return _genera_gemini_con_riprova(client, chiave, contenuti, types)
+    finally:
+        for f in caricati:  # i file restano su Google 48 ore: si cancellano subito
+            try:
+                client.files.delete(name=f.name)
+            except Exception:
+                pass
+
+
+def _carica_file_gemini(client, percorso: Path):
+    """Carica un PDF con la Files API (fino a 50 MB) e attende che Google lo abbia elaborato."""
+    import time
+    try:
+        f = client.files.upload(file=percorso, config={"mime_type": "application/pdf", "display_name": percorso.name})
+        for _ in range(60):
+            stato = getattr(getattr(f, "state", None), "name", "ACTIVE")
+            if stato != "PROCESSING":
+                break
+            time.sleep(2)
+            f = client.files.get(name=f.name)
+    except Exception as e:
+        raise _errore_gemini(e) from e
+    if getattr(getattr(f, "state", None), "name", "ACTIVE") == "FAILED":
+        raise ErroreEstrazione(f"Gemini non è riuscito a leggere {percorso.name}.")
+    return f
+
+
+ATTESE_GEMINI = (10, 30)  # secondi tra un tentativo e l'altro quando Gemini è sovraccarico (503)
+
+
+def _temporaneo(e: Exception) -> bool:
+    """Errori per cui ha senso riprovare: servizio sovraccarico o momentaneamente non disponibile."""
+    from google.genai import errors
+    return isinstance(e, errors.ServerError) and e.code in (500, 502, 503, 504)
+
+
+def _modello_di_riserva(client, attuale: str) -> str | None:
+    """Un altro modello "flash" adatto, da provare quando quello scelto resta sovraccarico."""
+    try:
+        nomi = [(m.name or "").removeprefix("models/") for m in client.models.list()
+                if "generateContent" in (getattr(m, "supported_actions", None) or [])]
+    except Exception:
+        return None
+    return modello_gemini_consigliato([n for n in nomi if n != attuale and "preview" not in n and "exp" not in n])
+
+
+def _genera_gemini_con_riprova(client, chiave: Chiave, contenuti: list, types) -> Estrazione:
+    """Gemini risponde spesso 503 ("model overloaded") nelle ore di punta: si riprova con attese crescenti,
+    poi con un altro modello flash."""
+    import time
+    modello = chiave.modello
+    import logging
+    log = logging.getLogger("saporesta")
+    ultimo: Exception | None = None
+    for attesa in (0, *ATTESE_GEMINI):
+        if attesa:
+            time.sleep(attesa)
+        try:
+            return _genera_gemini(client, modello, contenuti, types)
+        except _ErroreGrezzo as e:
+            log.warning("Gemini %s: %s", modello, e.originale)
+            if not _temporaneo(e.originale):
+                raise _errore_gemini(e.originale) from e.originale
+            ultimo = e.originale
+    riserva = _modello_di_riserva(client, modello)
+    if riserva:
+        try:
+            return _genera_gemini(client, riserva, contenuti, types)
+        except _ErroreGrezzo as e:
+            log.warning("Gemini %s: %s", riserva, e.originale)
+            if not _temporaneo(e.originale):
+                raise _errore_gemini(e.originale) from e.originale
+            ultimo = e.originale
+    raise ErroreEstrazione(
+        f"Gemini non risponde ({getattr(ultimo, 'code', '')}): ho riprovato 3 volte"
+        f"{' e anche con ' + riserva if riserva else ''}. Riprovare tra qualche minuto."
+        f"{_messaggio_google(ultimo)}") from ultimo
+
+
+class _ErroreGrezzo(Exception):
+    def __init__(self, originale: Exception):
+        super().__init__(str(originale))
+        self.originale = originale
+
+
+def _genera_gemini(client, modello: str, contenuti: list, types) -> Estrazione:
     try:
         risposta = client.models.generate_content(
-            model=chiave.modello,
+            model=modello,
             contents=contenuti,
             config=types.GenerateContentConfig(
                 system_instruction=SISTEMA,
@@ -401,8 +576,8 @@ def estrai_gemini(percorsi: list[Path], chiave: Chiave, client=None) -> Estrazio
                 max_output_tokens=32768,
             ),
         )
-    except Exception as e:  # errori di rete e dell'API tradotti in un messaggio leggibile
-        raise _errore_gemini(e) from e
+    except Exception as e:  # tradotti in un messaggio leggibile da chi chiama, dopo gli eventuali tentativi
+        raise _ErroreGrezzo(e) from e
 
     feedback = getattr(risposta, "prompt_feedback", None)
     if feedback is not None and getattr(feedback, "block_reason", None):
@@ -439,7 +614,7 @@ def modelli_disponibili(chiave: Chiave, client=None) -> list[str]:
         for m in client.models.list():
             azioni = getattr(m, "supported_actions", None) or []
             nome = (m.name or "").removeprefix("models/")
-            if "generateContent" in azioni and nome.startswith("gemini"):
+            if "generateContent" in azioni and modello_gemini_adatto(nome):
                 nomi.append(nome)
         return sorted(nomi)
     except Exception as e:

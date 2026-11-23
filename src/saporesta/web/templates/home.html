@@ -11,17 +11,29 @@ main { max-width: 960px; margin: 0 auto; display: grid; gap: 20px; }
 .piccolo { color: var(--tenue); font-size: 13px; }
 table { width: 100%; border-collapse: collapse; }
 td, th { text-align: left; padding: 8px; border-bottom: 1px solid var(--bordo); }
+@media (max-width: 760px) {
+  table, tbody { display: block; }
+  tr { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; column-gap: 8px;
+       border-bottom: 1px solid var(--bordo); padding: 8px 0; }
+  td, th { border: 0; padding: 2px 0; }
+  tr.testata th:nth-child(n+3) { display: none; }
+  tr.testata th:nth-child(2)::after { content: " – seleziona tutte"; font-weight: 400; color: var(--tenue); }
+  td.data { grid-column: 2; grid-row: 2; }
+  td.azione { grid-column: 3; grid-row: 1 / span 2; }
+  td a { overflow-wrap: anywhere; }
+}
 #attesa { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); color: #fff; align-items: center; justify-content: center; font-size: 18px; z-index: 10; text-align: center; padding: 20px; }
 </style>
 {% endblock %}
 {% block corpo %}
 <main>
+  {% if messaggio %}<div class="avviso">{{ messaggio }}</div>{% endif %}
   {% if errore %}<div class="avviso errore">{{ errore }}</div>{% endif %}
   <form class="carta nuova" method="post" action="/nuova" enctype="multipart/form-data" id="nuova">
     <h2 style="margin-top:0">Nuova pratica</h2>
     <label><span>Documenti PDF</span>
       <input type="file" name="documenti_pdf" accept="application/pdf" multiple required>
-      <span class="piccolo">Istanza A02, schede A02.3 e A02.4, relazione tecnica, piedilisti… (in tutto massimo 30 MB con Claude, 19 MB con Gemini). Le tavole cartografiche possono restare fuori.</span>
+      <span class="piccolo">Istanza A02, schede A02.3 e A02.4, relazione tecnica, piedilisti… (le scansioni pesanti vengono alleggerite automaticamente prima dell'invio all'AI). Le tavole cartografiche possono restare fuori.</span>
     </label>
     <label><span>Nome della pratica (facoltativo)</span><input type="text" name="etichetta" placeholder="es. Rossi Crotone"></label>
     <div class="riga">
@@ -36,19 +48,38 @@ td, th { text-align: left; padding: 8px; border-bottom: 1px solid var(--bordo); 
   <section class="carta">
     <h2 style="margin-top:0">Pratiche in corso</h2>
     {% if pratiche %}
+    <form method="post" action="/pratiche/elimina" id="elenco">
     <table>
+      <tr class="testata"><th style="width:28px"><input type="checkbox" id="tutte" title="Seleziona tutte" style="width:auto"></th>
+          <th>Pratica</th><th>Modificata</th><th></th></tr>
       {% for p in pratiche %}
-      <tr><td><a href="/pratica/{{ p.id }}">{{ p.titolo }}</a>{% if not p.ha_dati %} <span class="piccolo">(senza dati)</span>{% endif %}</td>
-          <td class="piccolo">{{ p.modificata.strftime('%d/%m/%Y %H:%M') }}</td></tr>
+      <tr><td><input type="checkbox" name="id" value="{{ p.id }}" class="scelta" style="width:auto"></td>
+          <td><a href="/pratica/{{ p.id }}">{{ p.titolo }}</a>{% if not p.ha_dati %} <span class="piccolo">(senza dati)</span>{% endif %}</td>
+          <td class="piccolo data">{{ p.modificata.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td class="azione" style="text-align:right"><button type="submit" class="pericolo" formaction="/pratica/{{ p.id }}/elimina"
+              data-titolo="{{ p.titolo }}" onclick="return confirm('Eliminare definitivamente la pratica «' + this.dataset.titolo + '» con i suoi PDF e documenti?')">Elimina</button></td></tr>
       {% endfor %}
     </table>
+    <div class="riga" style="margin-top:12px">
+      <button type="submit" class="pericolo" id="elimina-scelte" disabled
+              onclick="return confirm('Eliminare definitivamente le pratiche selezionate con i loro PDF e documenti?')">Elimina selezionate</button>
+    </div>
+    </form>
     {% else %}<p class="piccolo">Nessuna pratica.</p>{% endif %}
   </section>
 </main>
-<div id="attesa">Lettura dei documenti in corso…<br>può richiedere un paio di minuti.</div>
+<div id="attesa">Lettura dei documenti in corso…<br>può richiedere un paio di minuti (se Gemini è sovraccarico si riprova da soli).</div>
 {% endblock %}
 {% block script %}
 <script>
+(function () {
+  var tutte = document.getElementById('tutte'), bottone = document.getElementById('elimina-scelte');
+  if (!tutte) return;
+  var scelte = document.querySelectorAll('.scelta');
+  function aggiorna() { bottone.disabled = !Array.prototype.some.call(scelte, function (c) { return c.checked; }); }
+  tutte.addEventListener('change', function () { scelte.forEach(function (c) { c.checked = tutte.checked; }); aggiorna(); });
+  scelte.forEach(function (c) { c.addEventListener('change', aggiorna); });
+})();
 document.getElementById('nuova').addEventListener('submit', function () {
   if (this.estrai.checked && !this.estrai.disabled) document.getElementById('attesa').style.display = 'flex';
 });

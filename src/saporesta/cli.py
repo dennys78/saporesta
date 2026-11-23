@@ -89,6 +89,8 @@ def main(argv: list[str] | None = None) -> int:
             print("Per rendere il portale raggiungibile da altri dispositivi impostare SAPORESTA_PASSWORD: "
                   "contiene dati personali e chiavi API.")
             return 1
+        import logging
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
         print(f"Portale in ascolto su {a.host}:{a.porta}  (Ctrl+C per fermare)")
         uvicorn.run("saporesta.web.app:app", host=a.host, port=a.porta, proxy_headers=False)
         return 0

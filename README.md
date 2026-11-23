@@ -1,4 +1,4 @@
-# Saporesta – istruttoria istanze A02
+# Saporesta – gestione e valutazione aree di taglio
 
 Strumento per l'istruttoria delle istanze di autorizzazione al taglio boschivo (modulo A02,
 Regione Calabria) secondo il **Regolamento n. 4/2024** di attuazione della L.R. 45/2012.
@@ -107,7 +107,11 @@ cp .env.example .env        # e scrivere una password lunga in SAPORESTA_PASSWOR
 docker compose up -d --build
 ```
 
-Il portale è poi su `http://<indirizzo-del-mac-mini>:8765` e chiede la password. Pratiche, PDF, chiavi
+Il portale è poi su `http://<indirizzo-del-mac-mini>:8765` e chiede utente e password. Al primo accesso
+si entra con utente `admin` e la password di `SAPORESTA_PASSWORD`; dalla pagina **Impostazioni → Utenti**
+si creano poi gli utenti personali (nome e password, eventualmente amministratori). Solo gli amministratori
+gestiscono utenti, chiavi API e carta intestata; gli altri possono cambiare la propria password. L'utente
+`admin` con la password del file `.env` resta come accesso di emergenza. Pratiche, PDF, chiavi
 API e carta intestata restano sul Mac mini nella cartella `dati/` accanto al file `docker-compose.yml`
 (da includere nei backup). Per aggiornare: `git pull && docker compose up -d --build`.
 
