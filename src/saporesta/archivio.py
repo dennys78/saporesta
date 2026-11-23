@@ -166,3 +166,13 @@ def salva_estrazione(id_: str, grezza: dict, dubbi: list[dict], fonte: str = "")
 def estrazione(id_: str) -> dict | None:
     p = _cartella(id_) / "estrazione.json"
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+
+
+def aggiorna_dubbi(id_: str, dubbi: list[dict]) -> None:
+    """Riscrive i dubbi dell'estrazione (con lo stato risolto/aperto) lasciando il resto invariato."""
+    p = _cartella(id_) / "estrazione.json"
+    if not p.exists():
+        return
+    contenuto = json.loads(p.read_text(encoding="utf-8"))
+    contenuto["dubbi"] = dubbi
+    p.write_text(json.dumps(contenuto, ensure_ascii=False, indent=2), encoding="utf-8")

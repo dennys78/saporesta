@@ -429,7 +429,8 @@ TITOLI_LIVELLI = {
 }
 
 
-def genera_rapporto(p: Pratica, r: Risultato, destinazione: Path) -> Path:
+def genera_rapporto(p: Pratica, r: Risultato, destinazione: Path,
+                    correzioni: list[tuple[str, str, str]] | None = None) -> Path:
     """Rapporto dell'analisi istruttoria (uso interno dell'ufficio) in formato Word."""
     from docx import Document
     from docx.shared import Pt, RGBColor
@@ -491,6 +492,21 @@ def genera_rapporto(p: Pratica, r: Risultato, destinazione: Path) -> Path:
             run.bold = True
             run.font.color.rgb = colori[livello]
             par.add_run(e.messaggio + (f" ({e.articolo})" if e.articolo else ""))
+    accertati = p.istruttoria.dati_accertati
+    if correzioni or accertati:
+        doc.add_heading("Dati corretti o accertati dall'istruttore", level=2)
+        if correzioni:
+            t = doc.add_table(rows=1, cols=3)
+            t.style = "Table Grid"
+            for cella, testo in zip(t.rows[0].cells, ["Dato", "Letto dai PDF", "Valore usato"]):
+                cella.text = testo
+                cella.paragraphs[0].runs[0].bold = True
+            for riga in correzioni:
+                for cella, testo in zip(t.add_row().cells, riga):
+                    cella.text = testo
+        for a in accertati:
+            doc.add_paragraph(f"{a.campo}: valore accertato {a.valore}" + (f" – {a.nota}" if a.nota else ""),
+                              style="List Bullet")
     if r.integrazioni:
         doc.add_heading("Integrazioni da chiedere all'istante", level=2)
         for x in r.integrazioni:

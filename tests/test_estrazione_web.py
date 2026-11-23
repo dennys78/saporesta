@@ -263,7 +263,7 @@ def test_ritenta_acquisizione_dalla_pratica(tmp_path, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-finta")
     from saporesta.web import app as modulo_app
     client = TestClient(modulo_app.app)
-    id_ = archivio.crea("novello", [("istanza.pdf", PDF_PROVA.read_bytes())])
+    id_ = archivio.crea("prova", [("istanza.pdf", PDF_PROVA.read_bytes())])
 
     def guasto(percorsi):
         raise ErroreEstrazione("Gemini è sovraccarico (503).")

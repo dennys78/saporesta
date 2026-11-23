@@ -11,7 +11,7 @@ from datetime import date
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class TipoIntervento(str, Enum):
@@ -307,10 +307,27 @@ class Versamento(BaseModel):
     modalita: str | None = None  # "c/c postale", "bonifico"
 
 
+class DatoAccertato(BaseModel):
+    """Valore stabilito dall'istruttore per un dato riportato in modo diverso nei documenti."""
+
+    campo: str
+    valore: str
+    nota: str | None = None
+
+
 class Istruttoria(BaseModel):
     """Scelte e annotazioni dell'istruttore."""
 
     checklist: dict[str, VoceChecklist] = Field(default_factory=dict)
+    dati_accertati: list[DatoAccertato] = Field(default_factory=list)
+
+    @field_validator("dati_accertati", mode="before")
+    @classmethod
+    def _solo_compilati(cls, valore):
+        """Le caselle lasciate vuote nel modulo non sono dati accertati."""
+        if isinstance(valore, list):
+            return [v for v in valore if not isinstance(v, dict) or str(v.get("valore") or "").strip()]
+        return valore
     verifiche_ufficio: list[VerificaUfficio] = Field(default_factory=list)
     integrazioni_aggiuntive: list[str] = Field(default_factory=list)
     prescrizioni_aggiuntive: list[str] = Field(default_factory=list)

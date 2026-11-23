@@ -16,11 +16,11 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from pydantic import ValidationError
 
-from .. import archivio, documenti, estrazione, impostazioni, modelli_word, utenti
+from .. import archivio, correzioni, documenti, estrazione, impostazioni, modelli_word, utenti
 from . import accesso
 from ..models import Intervento, Istruttoria, Pratica
 from ..verifiche import Livello, esegui
-from .moduli import Rendering, analizza, checklist_html, da_modulo, html_errori, unisci
+from .moduli import Rendering, accertati_html, analizza, checklist_html, da_modulo, html_errori, unisci
 
 CARTELLA = Path(__file__).parent
 modelli = Jinja2Templates(directory=str(CARTELLA / "templates"))
@@ -135,21 +135,43 @@ def _404(funzione):
 
 
 def _campi_dubbi(id_: str) -> dict[str, str]:
-    """Dubbi dell'estrazione tradotti nei percorsi del modulo."""
+    """Dubbi ancora aperti dell'estrazione, tradotti nei percorsi del modulo."""
     est = archivio.estrazione(id_) or {}
-    alias = {
-        "tipo_intervento": "intervento.tipo", "sottotipi": "intervento.sottotipi", "specie": "intervento.popolamento.specie",
-        "eta_min": "intervento.popolamento.eta_min", "eta_max": "intervento.popolamento.eta_max",
-        "anno_ultimo_taglio": "intervento.popolamento.anno_ultimo_taglio",
-        "versamento_importo": "versamento.importo_totale",
-        "tavola_cubatura": "cubatura.tavola", "tavola_cubatura_testo": "cubatura.tavola_dichiarata",
-        "tariffa_tacal": "cubatura.tariffa", "classi_diametriche": "cubatura.classi",
-    }
     risultato: dict[str, str] = {}
     for d in est.get("dubbi", []):
-        campo = alias.get(d["campo"], d["campo"])
+        if d.get("risolto"):
+            continue
+        campo = correzioni.percorso_dubbio(d["campo"])
         risultato[campo] = (risultato.get(campo, "") + " " + d["motivo"]).strip()
     return risultato
+
+
+def _chiudi_dubbi(id_: str, vecchi: dict, nuovi: dict, controllati: set[str]) -> int:
+    """Chiude i dubbi dei campi corretti dall'istruttore o segnati come controllati. Restituisce quanti."""
+    est = archivio.estrazione(id_)
+    if not est or not est.get("dubbi"):
+        return 0
+    from datetime import date
+    oggi = date.today().strftime("%d/%m/%Y")
+    chiusi = 0
+    for i, d in enumerate(est["dubbi"]):
+        if d.get("risolto"):
+            continue
+        if str(i) in controllati:
+            d.update(risolto=True, come=f"segnato come controllato dall'istruttore il {oggi}")
+        elif correzioni.campo_cambiato(vecchi, nuovi, d["campo"]):
+            d.update(risolto=True, come=f"dato corretto dall'istruttore il {oggi}")
+        else:
+            continue
+        chiusi += 1
+    if chiusi:
+        archivio.aggiorna_dubbi(id_, est["dubbi"])
+    return chiusi
+
+
+def _correzioni(id_: str, dati: dict) -> list[tuple[str, str, str]]:
+    est = archivio.estrazione(id_) or {}
+    return correzioni.elenco_correzioni(correzioni.dati_estratti(est.get("estrazione") or {}), dati)
 
 
 def _modulo(id_: str, dati: dict, pratica: Pratica | None) -> Markup:
@@ -162,6 +184,8 @@ def _modulo(id_: str, dati: dict, pratica: Pratica | None) -> Markup:
             interno = r.campi(sottomodello, (dati or {}).get(campi[0]) or {}, campi[0])
         else:
             interno = r.campi(Pratica, dati, "", solo=campi)
+        if "riscontri" in campi:
+            interno += accertati_html(dati)
         parti.append(f'<section class="sezione"><h2>{titolo}</h2><div class="griglia">{interno}</div></section>')
     parti.append(f'<section class="sezione"><h2>Checklist documentale</h2>{checklist_html(pratica, dati)}</section>')
     istr = (dati or {}).get("istruttoria") or {}
@@ -196,7 +220,9 @@ def _pagina(request: Request, id_: str, dati: dict | None, errori: list[str] | N
         "messaggio": messaggio,
         "risultato": risultato,
         "gruppi": gruppi,
-        "dubbi": (archivio.estrazione(id_) or {}).get("dubbi", []),
+        "dubbi": [(i, d) for i, d in enumerate((archivio.estrazione(id_) or {}).get("dubbi", [])) if not d.get("risolto")],
+        "dubbi_risolti": [d for d in (archivio.estrazione(id_) or {}).get("dubbi", []) if d.get("risolto")],
+        "correzioni": _correzioni(id_, dati),
         "documenti": sorted(p.name for p in cartella_doc.iterdir() if p.is_file()),
         "titolo": next((v.titolo for v in archivio.elenco() if v.id == id_), id_),
         "chiave": impostazioni.chiave_attiva(),
@@ -277,7 +303,13 @@ async def salva(request: Request, id_: str):
         return _pagina(request, id_, nuovi, errori=html_errori(e.errors()),
                        messaggio="Dati non salvati: correggere i campi indicati.")
     archivio.salva(id_, p)
-    return _vai(f"/pratica/{id_}", messaggio="Salvato.")
+    salvati = p.model_dump(mode="json", exclude_none=True)
+    controllati = {v for k, v in modulo.multi_items() if k == "_dubbio"}
+    chiusi = _chiudi_dubbi(id_, vecchi or {}, salvati, controllati)
+    msg = "Salvato: le verifiche usano i dati corretti."
+    if chiusi:
+        msg += f" Chiusi {chiusi} dubbi dell'estrazione."
+    return _vai(f"/pratica/{id_}", messaggio=msg)
 
 
 @app.post("/pratica/{id_}/genera")
@@ -287,7 +319,8 @@ def genera(id_: str, tutti: str = Form("")):
     cartella = archivio.cartella_documenti(id_)
     vecchio = cartella / "rapporto_istruttoria.md"
     vecchio.unlink(missing_ok=True)
-    documenti.genera_rapporto(p, r, cartella / f"rapporto_istruttoria_{p.protocollo or 'bozza'}.docx")
+    documenti.genera_rapporto(p, r, cartella / f"rapporto_istruttoria_{p.protocollo or 'bozza'}.docx",
+                              correzioni=_correzioni(id_, p.model_dump(mode="json", exclude_none=True)))
     tipi = list(documenti.MODELLI) if tutti else documenti.documenti_per_proposta(r)
     for tipo in tipi:
         nome = documenti.MODELLI[tipo].replace(".docx", f"_{p.protocollo or 'bozza'}.docx")

@@ -348,3 +348,36 @@ def html_errori(errori: list[dict]) -> list[str]:
 
 
 __all__ = ["Rendering", "checklist_html", "da_modulo", "unisci", "html_errori", "StatoVoce"]
+
+
+def accertati_html(dati: dict) -> str:
+    """Per ogni dato discordante tra i documenti, il valore che l'istruttore ritiene corretto."""
+    from collections import defaultdict
+    from ..verifiche.generali import _norm
+    gruppi: dict[str, list] = defaultdict(list)
+    for r in (dati or {}).get("riscontri") or []:
+        if r.get("campo"):
+            gruppi[r["campo"]].append(r)
+    discordanti = {c: v for c, v in gruppi.items() if len({_norm(str(x.get("valore", ""))) for x in v}) > 1}
+    if not discordanti:
+        return ""
+    attuali = {a.get("campo", "").strip().lower(): a
+               for a in ((dati.get("istruttoria") or {}).get("dati_accertati") or [])}
+    righe = []
+    for i, (campo, voci) in enumerate(discordanti.items()):
+        a = attuali.get(campo.strip().lower(), {})
+        dettaglio = "; ".join(f"{escape(str(x.get('documento', '')))}: <strong>{escape(str(x.get('valore', '')))}</strong>"
+                              for x in voci)
+        pref = f"istruttoria.dati_accertati.{i}"
+        righe.append(
+            f'<div class="accertato"><p><strong>{escape(campo)}</strong> — {dettaglio}</p>'
+            f'<input type="hidden" name="{pref}.campo" value="{escape(campo)}">'
+            f'<div class="griglia"><label class="campo"><span>Valore accertato dall\'istruttore</span>'
+            f'<input type="text" name="{pref}.valore" value="{escape(str(a.get("valore") or ""))}" '
+            f'placeholder="es. il valore corretto"></label>'
+            f'<label class="campo largo"><span>Motivazione (facoltativa)</span>'
+            f'<input type="text" name="{pref}.nota" value="{escape(str(a.get("nota") or ""))}" '
+            f'placeholder="es. verificato sul piedilista di martellata"></label></div></div>')
+    return ('<fieldset class="gruppo accertati"><legend>Dati discordanti tra i documenti</legend>'
+            '<p class="nota-accertati">Indicando il valore corretto, la discordanza non viene più segnalata come '
+            'non conformità né chiesta all\'istante; resta annotata nel rapporto.</p>' + "".join(righe) + '</fieldset>')

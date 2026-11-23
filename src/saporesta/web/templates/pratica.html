@@ -64,7 +64,13 @@ ul.esiti li { padding: 4px 0; border-bottom: 1px solid var(--bordo); font-size: 
 .art { color: var(--tenue); font-size: 12px; }
 .dubbi { background: var(--giallo-chiaro); border-color: transparent; }
 .dubbi h2 { margin: 0 0 6px; font-size: 16px; color: var(--giallo); }
-.dubbi li { font-size: 14px; }
+.dubbi li { font-size: 14px; margin-bottom: 4px; }
+.dubbi .spiega { font-size: 13px; color: var(--tenue); margin: 0 0 6px; }
+.controllato { display: inline-flex; gap: 4px; align-items: center; margin-left: 8px; font-size: 13px; color: var(--testo); white-space: nowrap; }
+.controllato input { width: auto; }
+.storico summary { font-size: 14px; }
+table.correzioni { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+table.correzioni td, table.correzioni th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--bordo); vertical-align: top; }
 .sezione { background: var(--carta); border: 1px solid var(--bordo); border-radius: 8px; padding: 14px 16px; }
 .sezione h2 { margin: 0 0 10px; font-size: 16px; }
 .griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px 12px; }
@@ -73,6 +79,10 @@ ul.esiti li { padding: 4px 0; border-bottom: 1px solid var(--bordo); font-size: 
 .campo.largo, fieldset.gruppo { grid-column: 1 / -1; }
 .campo.dubbio input, .campo.dubbio select, .campo.dubbio textarea, .campo.dubbio .caselle { outline: 2px solid var(--giallo); background: var(--giallo-chiaro); }
 .nota-dubbio { color: var(--giallo); font-size: 12px; margin: 0 0 4px; }
+fieldset.accertati { grid-column: 1 / -1; border-color: var(--blu); }
+.accertato { border-bottom: 1px dashed var(--bordo); padding: 6px 0 10px; }
+.accertato p, .nota-accertati { margin: 0 0 6px; font-size: 13px; }
+.nota-accertati { color: var(--tenue); }
 fieldset.gruppo.dubbio { border-color: var(--giallo); background: var(--giallo-chiaro); }
 fieldset.gruppo { border: 1px solid var(--bordo); border-radius: 6px; margin: 4px 0; padding: 8px 12px 12px; }
 fieldset.gruppo legend { font-weight: 600; padding: 0 4px; }
@@ -170,7 +180,24 @@ tr.gruppo-checklist th { background: var(--sfondo); }
     {% if dubbi %}
     <section class="carta dubbi">
       <h2>Da controllare sui documenti ({{ dubbi | length }})</h2>
-      <ul>{% for d in dubbi %}<li><strong>{{ d.campo }}</strong>: {{ d.motivo }}</li>{% endfor %}</ul>
+      <p class="spiega">Correggendo il campo e salvando, il dubbio si chiude da solo. Se il dato è giusto così, spuntare «controllato» e salvare.</p>
+      <ul>{% for i, d in dubbi %}<li><strong>{{ d.campo }}</strong>: {{ d.motivo }}
+        <label class="controllato"><input type="checkbox" form="modulo" name="_dubbio" value="{{ i }}"> controllato</label></li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+    {% if dubbi_risolti or correzioni %}
+    <section class="carta storico">
+      {% if correzioni %}
+      <details><summary>Dati corretti rispetto ai PDF ({{ correzioni | length }})</summary>
+        <table class="correzioni"><thead><tr><th>Dato</th><th>Letto dai PDF</th><th>Valore usato</th></tr></thead>
+        <tbody>{% for dato, prima, dopo in correzioni %}<tr><td>{{ dato }}</td><td>{{ prima }}</td><td><strong>{{ dopo }}</strong></td></tr>{% endfor %}</tbody></table>
+      </details>
+      {% endif %}
+      {% if dubbi_risolti %}
+      <details><summary>Dubbi dell'estrazione chiusi ({{ dubbi_risolti | length }})</summary>
+        <ul>{% for d in dubbi_risolti %}<li><strong>{{ d.campo }}</strong>: {{ d.motivo }} <span class="art">— {{ d.come }}</span></li>{% endfor %}</ul>
+      </details>
+      {% endif %}
     </section>
     {% endif %}
 

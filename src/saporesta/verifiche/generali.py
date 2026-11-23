@@ -182,11 +182,21 @@ def riscontri(p: Pratica) -> list[Esito]:
     gruppi: dict[str, list] = defaultdict(list)
     for r in p.riscontri:
         gruppi[r.campo].append(r)
+    accertati = {a.campo.strip().lower(): a for a in p.istruttoria.dati_accertati if a.valore.strip()}
     esiti = []
     for campo, voci in gruppi.items():
         valori = {_norm(r.valore) for r in voci}
         if len(valori) > 1:
             dettaglio = "; ".join(f"{r.documento}: {r.valore}" for r in voci)
+            accertato = accertati.get(campo.strip().lower())
+            if accertato:
+                nota = f" – {accertato.nota}" if accertato.nota else ""
+                esiti.append(Esito(
+                    f"ris.{campo}", f"Coerenza dati: {campo}", Livello.INFO,
+                    f"Valori discordanti tra i documenti ({dettaglio}): l'istruttore ha accertato il valore "
+                    f"{accertato.valore}{nota}.",
+                ))
+                continue
             esiti.append(Esito(
                 f"ris.{campo}", f"Coerenza dati: {campo}", Livello.NON_CONFORME,
                 f"Valori discordanti tra i documenti ({dettaglio}).",
